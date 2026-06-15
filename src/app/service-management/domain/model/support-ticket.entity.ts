@@ -1,7 +1,12 @@
 import { BaseEntity } from '../../../shared/domain/model/base.entity';
 
 export type SupportTicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
-export type SupportTicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+export type SupportTicketPriority =
+  | 'LOW'
+  | 'MEDIUM'
+  | 'HIGH'
+  | 'CRITICAL'
+  | 'URGENT';
 
 export class SupportTicket extends BaseEntity<number> {
   private readonly _userId: number;
@@ -58,6 +63,14 @@ export class SupportTicket extends BaseEntity<number> {
   }
 
   get isCritical(): boolean {
-    return this._priority === 'CRITICAL' || this._priority === 'HIGH';
+    return (
+      this._priority === 'URGENT' ||
+      this._priority === 'CRITICAL' ||
+      this._priority === 'HIGH'
+    );
+  }
+
+  get isUrgent(): boolean {
+    return this._priority === 'URGENT';
   }
 }
