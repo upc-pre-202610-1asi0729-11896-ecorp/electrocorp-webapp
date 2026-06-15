@@ -8,7 +8,7 @@ export interface SupportTicketResponse extends BaseResponse<number> {
   userId: number;
   subject: string;
   description: string;
-  status: SupportTicketStatus;
   priority: SupportTicketPriority;
-  createdAt: string;
+  status: SupportTicketStatus;
+  createdAt?: string | null;
 }
