@@ -1,139 +1,252 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { BillingFacade } from '../../../billing/application/services/billing.facade';
 import { PlanPermissionService } from '../../../billing/domain/services/plan-permission.service';
 
-import { EnergyReading } from '../../domain/model/energy-reading.entity';
-import { EnergyRecommendationService } from '../../domain/services/energy-recommendation.service';
 import { ExportEnergyReadingsCommand } from '../commands/export-energy-readings.command';
-import { FilterReadingsDto } from '../dtos/filter-readings.dto';
-import { ReadingsApiService } from '../../infrastructure/api/readings-api.service';
+import { EnergyReadingsFilterCriteria } from '../criteria/energy-readings-filter.criteria';
+
+import { EnergyReadingsApiService } from '../../infrastructure/api/energy-readings-api.service';
 import { EnergyReadingAssembler } from '../../infrastructure/assemblers/energy-reading.assembler';
+
+import { EnergyMonitoringStore } from '../stores/energy-monitoring.store';
 
 @Injectable({
   providedIn: 'root',
 })
 export class EnergyMonitoringFacade {
-  private readonly assembler = new EnergyReadingAssembler();
+  private readonly energyReadingAssembler = new EnergyReadingAssembler();
 
-  private readonly allReadingsSignal = signal<EnergyReading[]>([]);
-  private readonly readingsSignal = signal<EnergyReading[]>([]);
-  private readonly loadingSignal = signal<boolean>(false);
-  private readonly errorSignal = signal<string | null>(null);
+  private toInputDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
 
-  readonly readings = computed(() => this.readingsSignal());
-  readonly loading = computed(() => this.loadingSignal());
-  readonly error = computed(() => this.errorSignal());
+  return `${year}-${month}-${day}`;
+}
 
-  readonly totalWatts = computed(() =>
-    this.readingsSignal().reduce((total, reading) => total + reading.watts, 0)
-  );
+  get readings() {
+    return this.store.readings;
+  }
 
-  readonly averageWatts = computed(() => {
-    const readings = this.readingsSignal();
+  get filteredReadings() {
+    return this.store.filteredReadings;
+  }
 
-    if (readings.length === 0) return 0;
+  get visibleReadings() {
+    return this.store.visibleReadings;
+  }
 
-    return Math.round(
-      readings.reduce((total, reading) => total + reading.watts, 0) /
-      readings.length
-    );
-  });
+  get dashboardSummary() {
+    return this.store.dashboardSummary;
+  }
 
-  readonly highestReading = computed(() => {
-    const watts = this.readingsSignal().map((reading) => reading.watts);
-    return watts.length > 0 ? Math.max(...watts) : 0;
-  });
+  get loading() {
+    return this.store.loading;
+  }
 
-  readonly recommendationKey = computed(() =>
-    this.recommendationService.generateRecommendation(this.readingsSignal())
-  );
+  get error() {
+    return this.store.error;
+  }
+
+  get totalWatts() {
+    return this.store.totalWatts;
+  }
+
+  get averageWatts() {
+    return this.store.averageWatts;
+  }
+
+  get highestReading() {
+    return this.store.highestReading;
+  }
+
+  get highReadingsCount() {
+    return this.store.highReadingsCount;
+  }
+
+  get normalReadingsCount() {
+    return this.store.normalReadingsCount;
+  }
+
+  get recommendationKey() {
+    return this.store.recommendationKey;
+  }
+
+  get groupedByDevice() {
+    return this.store.groupedByDevice;
+  }
 
   constructor(
-    private readonly readingsApi: ReadingsApiService,
-    private readonly recommendationService: EnergyRecommendationService,
+    private readonly energyReadingsApi: EnergyReadingsApiService,
     private readonly billingFacade: BillingFacade,
-    private readonly planPermissionService: PlanPermissionService
+    private readonly planPermissionService: PlanPermissionService,
+    private readonly store: EnergyMonitoringStore
   ) {}
 
-  async loadReadings(): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async loadReadings(showLoading = true): Promise<void> {
+    if (showLoading) {
+      this.startRequest();
+    } else {
+      this.store.setError(null);
+    }
 
     try {
-      const responses = await firstValueFrom(this.readingsApi.findAll());
-      const readings = responses.map((response) =>
-        this.assembler.toEntity(response)
+      const responses = await firstValueFrom(
+        this.energyReadingsApi.findAllForCurrentUser()
+      );
+      const dashboardSummary = await firstValueFrom(
+        this.energyReadingsApi.getDashboardSummary()
       );
 
-      this.allReadingsSignal.set(readings);
-      this.readingsSignal.set(readings);
+      const readings = responses
+        .map((response) => this.energyReadingAssembler.toEntity(response))
+        .sort(
+          (first, second) =>
+            new Date(second.recordedAt).getTime() -
+            new Date(first.recordedAt).getTime()
+        );
+
+      this.store.setReadings(readings);
+      this.store.resetFilter();
+      this.store.setDashboardSummary(dashboardSummary);
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('energy.loadError');
+      this.store.setError('energy.loadError');
     } finally {
-      this.loadingSignal.set(false);
+      if (showLoading) {
+        this.finishRequest();
+      }
     }
   }
 
-  filterReadings(payload: FilterReadingsDto): void {
-    if (!payload.startDate || !payload.endDate) {
-      this.readingsSignal.set(this.allReadingsSignal());
-      return;
+  async loadSamplingSeconds(): Promise<number> {
+    const response = await firstValueFrom(
+      this.energyReadingsApi.getSamplingSettings()
+    );
+
+    return response.sampleSeconds;
+  }
+
+  async updateSamplingSeconds(sampleSeconds: number): Promise<number> {
+    const response = await firstValueFrom(
+      this.energyReadingsApi.updateSamplingSettings(sampleSeconds)
+    );
+
+    await this.loadReadings(false);
+    return response.sampleSeconds;
+  }
+
+  async filterByDateRange(criteria: EnergyReadingsFilterCriteria): Promise<boolean> {
+  this.startRequest();
+
+  try {
+    if (!criteria.startDate || !criteria.endDate) {
+      this.store.setFilteredReadings([]);
+      this.store.setError('Selecciona una fecha inicial y una fecha final.');
+      return false;
     }
 
-    const start = new Date(payload.startDate);
-    const end = new Date(payload.endDate);
+    if (criteria.startDate > criteria.endDate) {
+      this.store.setFilteredReadings([]);
+      this.store.setError('La fecha inicial no puede ser mayor que la fecha final.');
+      return false;
+    }
 
-    const filtered = this.allReadingsSignal().filter((reading) => {
-      const recordedAt = new Date(reading.recordedAt);
-      return recordedAt >= start && recordedAt <= end;
-    });
+    const today = this.toInputDate(new Date());
 
-    this.readingsSignal.set(filtered);
+    if (criteria.startDate > today || criteria.endDate > today) {
+      this.store.setFilteredReadings([]);
+      this.store.setError('No puedes filtrar fechas futuras.');
+      return false;
+    }
+
+    const responses = await firstValueFrom(
+      this.energyReadingsApi.findCurrentUserByDateRange(
+        criteria.startDate,
+        criteria.endDate
+      )
+    );
+
+    const readings = responses
+      .map((response) => this.energyReadingAssembler.toEntity(response))
+      .sort(
+        (first, second) =>
+          new Date(second.recordedAt).getTime() -
+          new Date(first.recordedAt).getTime()
+      );
+
+    this.store.setFilteredReadings(readings);
+    this.store.setError(null);
+
+    return true;
+  } catch (error) {
+    console.error(error);
+    this.store.setFilteredReadings([]);
+    this.store.setError('No se pudieron filtrar las lecturas.');
+    return false;
+  } finally {
+    this.finishRequest();
   }
+}
 
   resetFilter(): void {
-    this.readingsSignal.set(this.allReadingsSignal());
+    this.store.resetFilter();
+    this.store.setError(null);
   }
 
-  async exportCsv(
-    command: ExportEnergyReadingsCommand = {
-      fileName: 'electrocorp-energy-readings.csv',
-    }
-  ): Promise<boolean> {
-    await this.billingFacade.loadBilling();
+  exportCsv(command: ExportEnergyReadingsCommand): boolean {
+    this.store.setError(null);
 
     const activePlanCode = this.billingFacade.activePlanCode();
 
-    const canExportCsv = this.planPermissionService.canExportCsv(activePlanCode);
+    const canExport = this.planPermissionService.canExportCsv(activePlanCode);
 
-    if (!canExportCsv) {
-      this.errorSignal.set('energy.exportNotAllowed');
+    if (!canExport) {
+      this.store.setError('energy.exportNotAllowed');
       return false;
     }
 
-    const readings = command.readings ?? this.readingsSignal();
+    const readings = command.readings ?? this.store.visibleReadings();
 
     if (readings.length === 0) {
-      this.errorSignal.set('energy.emptyReadings');
+      this.store.setError('energy.emptyReadings');
       return false;
     }
 
-    const rows = [
-      ['Device', 'Watts', 'Date', 'Status'],
-      ...readings.map((reading) => [
-        reading.deviceName,
-        String(reading.watts),
-        reading.recordedAt,
-        reading.status,
-      ]),
+    const header = [
+      'id',
+      'userId',
+      'deviceId',
+      'deviceName',
+      'watts',
+      'kilowattHours',
+      'estimatedCost',
+      'sampleSeconds',
+      'recordedAt',
+      'status',
     ];
 
-    const csvContent = rows.map((row) => row.join(',')).join('\n');
+    const rows = readings.map((reading) => [
+      reading.id,
+      reading.userId,
+      reading.deviceId,
+      reading.deviceName,
+      reading.watts,
+      reading.kilowattHours,
+      reading.estimatedCost,
+      reading.sampleSeconds,
+      reading.recordedAt,
+      reading.status,
+    ]);
+
+    const csvContent = [header, ...rows]
+      .map((row) => row.map((value) => `"${String(value)}"`).join(','))
+      .join('\n');
+
     const blob = new Blob([csvContent], {
-      type: 'text/csv;charset=utf-8;',
+      type: 'text/csv;charset=utf-8',
     });
 
     const url = URL.createObjectURL(blob);
@@ -143,9 +256,23 @@ export class EnergyMonitoringFacade {
     anchor.download = command.fileName.endsWith('.csv')
       ? command.fileName
       : `${command.fileName}.csv`;
-    anchor.click();
 
+    anchor.click();
     URL.revokeObjectURL(url);
+
     return true;
+  }
+
+  clearMessages(): void {
+    this.store.clearMessages();
+  }
+
+  private startRequest(): void {
+    this.store.setLoading(true);
+    this.store.clearMessages();
+  }
+
+  private finishRequest(): void {
+    this.store.setLoading(false);
   }
 }
