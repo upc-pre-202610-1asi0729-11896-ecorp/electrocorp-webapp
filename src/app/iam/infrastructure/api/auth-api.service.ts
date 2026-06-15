@@ -23,4 +23,8 @@ export class AuthApiService {
   signUp(resource: SignUpResource): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.authUrl}/sign-up`, resource);
   }
+
+  recoverPassword(email: string): Observable<void> {
+    return this.http.post<void>(`${this.authUrl}/recover-password`, { email });
+  }
 }
