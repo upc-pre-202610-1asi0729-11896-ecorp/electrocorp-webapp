@@ -22,6 +22,15 @@ export const WORKPLACE_ROUTES: Routes = [
       ),
   },
   {
+    path: 'spaces/assignments',
+    canActivate: [activeSubscriptionGuard],
+    data: { title: 'Asignaciones' },
+    loadComponent: () =>
+      import(
+        '../pages/device-assignments/device-assignments-page.component'
+      ).then((m) => m.DeviceAssignmentsPageComponent),
+  },
+  {
     path: 'workplace',
     redirectTo: 'spaces/sites',
     pathMatch: 'full',
@@ -34,6 +43,11 @@ export const WORKPLACE_ROUTES: Routes = [
   {
     path: 'workplace/rooms',
     redirectTo: 'spaces/rooms',
+    pathMatch: 'full',
+  },
+  {
+    path: 'workplace/device-assignments',
+    redirectTo: 'spaces/assignments',
     pathMatch: 'full',
   },
 ];
