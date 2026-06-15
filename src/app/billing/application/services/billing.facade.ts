@@ -3,10 +3,12 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 
+import { Invoice } from '../../domain/model/invoice.entity';
 import { Plan, PlanCode } from '../../domain/model/plan.entity';
 import { Subscription } from '../../domain/model/subscription.entity';
 
 import { CancelSubscriptionCommand } from '../commands/cancel-subscription.command';
+import { DownloadInvoiceCommand } from '../commands/download-invoice.command';
 import { PaymentFormCommand } from '../commands/payment-form.command';
 import { SubscribeDto } from '../dtos/subscribe.dto';
 import { ProcessPaymentDto } from '../dtos/process-payment.dto';
@@ -14,7 +16,9 @@ import { ProcessPaymentDto } from '../dtos/process-payment.dto';
 import { PlansApiService } from '../../infrastructure/api/plans-api.service';
 import { SubscriptionsApiService } from '../../infrastructure/api/subscriptions-api.service';
 import { PaymentsApiService } from '../../infrastructure/api/payments-api.service';
+import { InvoicesApiService } from '../../infrastructure/api/invoices-api.service';
 
+import { InvoiceAssembler } from '../../infrastructure/assemblers/invoice.assembler';
 import { PlanAssembler } from '../../infrastructure/assemblers/plan.assembler';
 import { SubscriptionAssembler } from '../../infrastructure/assemblers/subscription.assembler';
 import { PaymentAssembler } from '../../infrastructure/assemblers/payment.assembler';
@@ -30,16 +34,19 @@ export class BillingFacade {
   private readonly planAssembler = new PlanAssembler();
   private readonly subscriptionAssembler = new SubscriptionAssembler();
   private readonly paymentAssembler = new PaymentAssembler();
+  private readonly invoiceAssembler = new InvoiceAssembler();
 
   private readonly plansSignal = signal<Plan[]>([]);
   private readonly activeSubscriptionSignal = signal<Subscription | null>(null);
   private readonly lastPaymentSignal = signal<Payment | null>(null);
+  private readonly invoicesSignal = signal<Invoice[]>([]);
   private readonly loadingSignal = signal<boolean>(false);
   private readonly errorSignal = signal<string | null>(null);
 
   readonly plans = computed(() => this.plansSignal());
   readonly activeSubscription = computed(() => this.activeSubscriptionSignal());
   readonly lastPayment = computed(() => this.lastPaymentSignal());
+  readonly invoices = computed(() => this.invoicesSignal());
   readonly loading = computed(() => this.loadingSignal());
   readonly error = computed(() => this.errorSignal());
 
@@ -64,6 +71,7 @@ export class BillingFacade {
     private readonly plansApi: PlansApiService,
     private readonly subscriptionsApi: SubscriptionsApiService,
     private readonly paymentsApi: PaymentsApiService,
+    private readonly invoicesApi: InvoicesApiService,
     private readonly subscriptionPolicyService: SubscriptionPolicyService,
     private readonly paymentValidationService: PaymentValidationService,
     private readonly authSession: AuthSessionService
@@ -274,6 +282,54 @@ export class BillingFacade {
 
   clearError(): void {
     this.errorSignal.set(null);
+  }
+
+  async loadInvoices(): Promise<void> {
+    const userId = this.getCurrentUserId();
+    const responses = await firstValueFrom(
+      this.invoicesApi.findCurrentUserInvoices(userId)
+    );
+
+    this.invoicesSignal.set(
+      responses.map((response) => this.invoiceAssembler.toEntity(response))
+    );
+  }
+
+  async downloadInvoice(command: DownloadInvoiceCommand): Promise<void> {
+    if (this.invoicesSignal().length === 0) {
+      await this.loadInvoices();
+    }
+
+    const invoice = this.invoicesSignal().find(
+      (item) => item.id === command.invoiceId
+    );
+
+    if (!invoice) {
+      this.errorSignal.set('billing.invoiceNotFound');
+      return;
+    }
+
+    const content = [
+      'ELECTROCORP INVOICE',
+      `Invoice ID: ${invoice.id}`,
+      `Invoice Number: ${invoice.invoiceNumber}`,
+      `User ID: ${invoice.userId}`,
+      `Amount: ${invoice.currency} ${invoice.totalAmount}`,
+      `Issued At: ${invoice.issuedAt}`,
+    ].join('\n');
+
+    const blob = new Blob([content], {
+      type: 'text/plain;charset=utf-8',
+    });
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+
+    anchor.href = url;
+    anchor.download = `electrocorp-invoice-${invoice.id}.txt`;
+    anchor.click();
+
+    URL.revokeObjectURL(url);
   }
 
   async loadLastPayment(): Promise<void> {
