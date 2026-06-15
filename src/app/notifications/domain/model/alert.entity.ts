@@ -49,7 +49,7 @@ export class Alert extends BaseEntity<number> {
   private readonly _repeatCount: number;
   private readonly _active: boolean;
   private readonly _resolved: boolean;
-  private _read: boolean;
+  private readonly _read: boolean;
   private readonly _createdAt: string;
   private readonly _firstDetectedAt: string | null;
   private readonly _lastTriggeredAt: string | null;
@@ -60,7 +60,7 @@ export class Alert extends BaseEntity<number> {
 
   constructor(props: {
     id: number;
-    userId?: number | null;
+    userId: number;
     title: string;
     message: string;
     level: AlertLevel;
@@ -86,7 +86,7 @@ export class Alert extends BaseEntity<number> {
     silenced?: boolean;
   }) {
     super(props.id);
-    this._userId = props.userId ?? 0;
+    this._userId = props.userId;
     this._title = props.title;
     this._message = props.message;
     this._level = props.level;
@@ -112,36 +112,124 @@ export class Alert extends BaseEntity<number> {
     this._silenced = props.silenced ?? false;
   }
 
-  get userId(): number { return this._userId; }
-  get title(): string { return this._title; }
-  get message(): string { return this._message; }
-  get level(): AlertLevel { return this._level; }
-  get sourceType(): AlertSourceType { return this._sourceType; }
-  get sourceId(): string | null { return this._sourceId; }
-  get sourceLabel(): string | null { return this._sourceLabel; }
-  get eventType(): AlertEventType { return this._eventType; }
-  get threadKey(): string { return this._threadKey; }
-  get evidence(): string | null { return this._evidence; }
-  get explanation(): string | null { return this._explanation; }
-  get recommendedAction(): string | null { return this._recommendedAction; }
-  get severityScore(): number { return this._severityScore; }
-  get repeatCount(): number { return this._repeatCount; }
-  get active(): boolean { return this._active; }
-  get resolved(): boolean { return this._resolved; }
-  get read(): boolean { return this._read; }
-  get createdAt(): string { return this._createdAt; }
-  get firstDetectedAt(): string | null { return this._firstDetectedAt; }
-  get lastTriggeredAt(): string | null { return this._lastTriggeredAt; }
-  get dismissedUntil(): string | null { return this._dismissedUntil; }
-  get expiresAt(): string | null { return this._expiresAt; }
-  get expired(): boolean { return this._expired; }
-  get silenced(): boolean { return this._silenced; }
-  get unread(): boolean { return !this._read; }
-  get isUnread(): boolean { return !this._read; }
-  get isCritical(): boolean { return this._level === 'CRITICAL'; }
+  get userId(): number {
+    return this._userId;
+  }
 
-  markAsRead(): void {
-    this._read = true;
+  get title(): string {
+    return this._title;
+  }
+
+  get message(): string {
+    return this._message;
+  }
+
+  get level(): AlertLevel {
+    return this._level;
+  }
+
+  get sourceType(): AlertSourceType {
+    return this._sourceType;
+  }
+
+  get sourceId(): string | null {
+    return this._sourceId;
+  }
+
+  get sourceLabel(): string | null {
+    return this._sourceLabel;
+  }
+
+  get eventType(): AlertEventType {
+    return this._eventType;
+  }
+
+  get threadKey(): string {
+    return this._threadKey;
+  }
+
+  get evidence(): string | null {
+    return this._evidence;
+  }
+
+  get explanation(): string | null {
+    return this._explanation;
+  }
+
+  get recommendedAction(): string | null {
+    return this._recommendedAction;
+  }
+
+  get severityScore(): number {
+    return this._severityScore;
+  }
+
+  get repeatCount(): number {
+    return this._repeatCount;
+  }
+
+  get active(): boolean {
+    return this._active;
+  }
+
+  get resolved(): boolean {
+    return this._resolved;
+  }
+
+  get read(): boolean {
+    return this._read;
+  }
+
+  get createdAt(): string {
+    return this._createdAt;
+  }
+
+  get firstDetectedAt(): string | null {
+    return this._firstDetectedAt;
+  }
+
+  get lastTriggeredAt(): string | null {
+    return this._lastTriggeredAt;
+  }
+
+  get dismissedUntil(): string | null {
+    return this._dismissedUntil;
+  }
+
+  get expiresAt(): string | null {
+    return this._expiresAt;
+  }
+
+  get expired(): boolean {
+    return this._expired;
+  }
+
+  get silenced(): boolean {
+    return this._silenced;
+  }
+
+  get isUnread(): boolean {
+    return !this._read;
+  }
+
+  get isCritical(): boolean {
+    return this._level === 'CRITICAL';
+  }
+
+  get isWarning(): boolean {
+    return this._level === 'WARNING';
+  }
+
+  get isInfo(): boolean {
+    return this._level === 'INFO';
+  }
+
+  get isStable(): boolean {
+    return this._level === 'STABLE';
+  }
+
+  get isSuccess(): boolean {
+    return this._level === 'SUCCESS';
   }
 
   private defaultSeverityScore(level: AlertLevel): number {

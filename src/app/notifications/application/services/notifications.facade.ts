@@ -1,31 +1,29 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { BillingFacade } from '../../../billing/application/services/billing.facade';
-import { PlanPermissionService } from '../../../billing/domain/services/plan-permission.service';
+import { AlertLevel } from '../../domain/model/alert.entity';
+import { AlertRuleProfile } from '../../domain/model/alert-rule-profile.entity';
+import { RuleEvaluationResult } from '../../domain/model/rule-evaluation-result.entity';
 
-import { Alert } from '../../domain/model/alert.entity';
-import { AlertRule } from '../../domain/model/alert-rule.entity';
-import {
-  DEFAULT_NOTIFICATION_CLASSIFICATION_POLICY,
-  NotificationClassificationPolicy,
-  normalizeNotificationClassificationPolicy,
-} from '../../domain/model/notification-classification-policy.model';
-import { NotificationPreference } from '../../domain/model/notification-preference.entity';
-import { CreateAlertRuleCommand } from '../commands/create-alert-rule.command';
 import { CreateAlertCommand } from '../commands/create-alert.command';
+import { CreateAlertRuleCommand } from '../commands/create-alert-rule.command';
 import { MarkAlertAsReadCommand } from '../commands/mark-alert-as-read.command';
 import { UpdateAlertRuleStatusCommand } from '../commands/update-alert-rule-status.command';
 import { UpdateNotificationPreferenceCommand } from '../commands/update-notification-preference.command';
-import { CreateAlertDto } from '../dtos/create-alert.dto';
+
 import { AlertRulesApiService } from '../../infrastructure/api/alert-rules-api.service';
+import { AlertRuleProfilesApiService } from '../../infrastructure/api/alert-rule-profiles-api.service';
 import { AlertsApiService } from '../../infrastructure/api/alerts-api.service';
 import { NotificationPreferencesApiService } from '../../infrastructure/api/notification-preferences-api.service';
+
 import { AlertRuleAssembler } from '../../infrastructure/assemblers/alert-rule.assembler';
 import { AlertAssembler } from '../../infrastructure/assemblers/alert.assembler';
 import { NotificationPreferenceAssembler } from '../../infrastructure/assemblers/notification-preference.assembler';
-import { AlertPriorityService } from '../../domain/services/alert-priority.service';
+
 import { NotificationChannelPolicyService } from '../../domain/services/notification-channel-policy.service';
+import { NotificationClassificationPolicy } from '../../domain/model/notification-classification-policy.model';
+
+import { NotificationsStore } from '../stores/notifications.store';
 
 @Injectable({
   providedIn: 'root',
@@ -36,164 +34,232 @@ export class NotificationsFacade {
   private readonly notificationPreferenceAssembler =
     new NotificationPreferenceAssembler();
 
-  private readonly alertsSignal = signal<Alert[]>([]);
-  private readonly alertRulesSignal = signal<AlertRule[]>([]);
-  private readonly notificationPreferenceSignal =
-    signal<NotificationPreference | null>(null);
-  private readonly notificationClassificationPolicySignal =
-    signal<NotificationClassificationPolicy>(
-      DEFAULT_NOTIFICATION_CLASSIFICATION_POLICY
-    );
-  private readonly loadingSignal = signal<boolean>(false);
-  private readonly errorSignal = signal<string | null>(null);
+  get alerts() {
+    return this.store.alerts;
+  }
 
-  readonly alerts = computed(() => this.alertsSignal());
-  readonly alertRules = computed(() => this.alertRulesSignal());
-  readonly notificationPreference = computed(() =>
-    this.notificationPreferenceSignal()
-  );
-  readonly notificationClassificationPolicy = computed(() =>
-    this.notificationClassificationPolicySignal()
-  );
-  readonly loading = computed(() => this.loadingSignal());
-  readonly error = computed(() => this.errorSignal());
+  get alertRules() {
+    return this.store.alertRules;
+  }
 
-  readonly unreadCount = computed(
-    () => this.alertsSignal().filter((alert) => alert.unread).length
-  );
+  get alertRuleProfiles() {
+    return this.store.alertRuleProfiles;
+  }
 
-  readonly sortedAlerts = computed(() =>
-    this.alertPriorityService.sortByPriorityAndDate(this.alertsSignal())
-  );
+  get ruleEvaluationResult() {
+    return this.store.ruleEvaluationResult;
+  }
 
-  readonly enabledAlertRules = computed(() =>
-    this.alertRulesSignal().filter((rule) => rule.isEnabled)
-  );
+  get notificationPreference() {
+    return this.store.notificationPreference;
+  }
 
-  async loadAlerts(): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  get notificationClassificationPolicy() {
+    return this.store.notificationClassificationPolicy;
+  }
+
+  get loading() {
+    return this.store.loading;
+  }
+
+  get error() {
+    return this.store.error;
+  }
+
+  get unreadAlerts() {
+    return this.store.unreadAlerts;
+  }
+
+  get criticalAlerts() {
+    return this.store.criticalAlerts;
+  }
+
+  get enabledAlertRules() {
+    return this.store.enabledAlertRules;
+  }
+
+  get sortedAlerts() {
+    return this.store.sortedAlerts;
+  }
+
+  constructor(
+    private readonly alertsApi: AlertsApiService,
+    private readonly alertRulesApi: AlertRulesApiService,
+    private readonly alertRuleProfilesApi: AlertRuleProfilesApiService,
+    private readonly notificationPreferencesApi: NotificationPreferencesApiService,
+    private readonly notificationChannelPolicy: NotificationChannelPolicyService,
+    private readonly store: NotificationsStore
+  ) {}
+
+  async loadNotifications(): Promise<void> {
+    this.startRequest();
 
     try {
-      const responses = await firstValueFrom(this.alertsApi.findAll());
-
-      this.alertsSignal.set(
-        responses.map((response) => this.alertAssembler.toEntity(response))
-      );
+      await Promise.all([
+        this.loadAlerts(),
+        this.loadAlertRules(),
+        this.loadAlertRuleProfiles(),
+        this.loadNotificationPreference(),
+      ]);
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('alerts.loadError');
+      this.store.setError('alerts.loadError');
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async createAlert(payload: CreateAlertDto | CreateAlertCommand): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async loadAlerts(): Promise<void> {
+    const responses = await firstValueFrom(this.alertsApi.findAllForCurrentUser());
 
-    try {
-      await this.billingFacade.loadBilling();
-
-      const activePlanCode = this.billingFacade.activePlanCode();
-
-      const canCreateAlert = this.planPermissionService.canCreateManualAlert(
-        activePlanCode,
-        this.alertsSignal().length
+    const alerts = responses
+      .map((response) => this.alertAssembler.toEntity(response))
+      .sort(
+        (first, second) =>
+          new Date(second.createdAt).getTime() -
+          new Date(first.createdAt).getTime()
       );
 
-      if (!canCreateAlert) {
-        this.errorSignal.set('alerts.planLimitReached');
+    this.store.setAlerts(alerts);
+  }
+
+  async createAlert(command: CreateAlertCommand): Promise<boolean> {
+    this.store.clearMessages();
+
+    try {
+      if (!command.title.trim() || !command.message.trim()) {
+        this.store.setError('alerts.createError');
         return false;
       }
 
+      const preference = this.store.notificationPreference();
+
       const canNotify = this.notificationChannelPolicy.canNotify(
-        this.notificationPreferenceSignal(),
-        payload.level
+        preference,
+        command.level
       );
+
       void canNotify;
 
       const response = await firstValueFrom(
         this.alertsApi.createAlert({
-          title: payload.title,
-          message: payload.message,
-          level: payload.level,
-          sourceType: 'sourceType' in payload ? payload.sourceType ?? 'SYSTEM' : 'SYSTEM',
-          sourceId: 'sourceId' in payload ? payload.sourceId ?? null : null,
-          sourceLabel: 'sourceLabel' in payload ? payload.sourceLabel ?? null : null,
-          eventType: 'eventType' in payload ? payload.eventType ?? 'MANUAL' : 'MANUAL',
-          threadKey: 'threadKey' in payload ? payload.threadKey : undefined,
-          evidence: 'evidence' in payload ? payload.evidence ?? null : null,
-          explanation: 'explanation' in payload ? payload.explanation ?? null : null,
-          recommendedAction:
-            'recommendedAction' in payload
-              ? payload.recommendedAction ?? null
-              : null,
-          severityScore: 'severityScore' in payload ? payload.severityScore : undefined,
-          expiresAt: 'expiresAt' in payload ? payload.expiresAt ?? null : null,
-          createdAt: new Date().toISOString().slice(0, 10),
-          read: false,
+          title: command.title.trim(),
+          message: command.message.trim(),
+          level: command.level,
+          sourceType: command.sourceType ?? 'SYSTEM',
+          sourceId: command.sourceId ?? null,
+          sourceLabel: command.sourceLabel ?? null,
+          eventType: command.eventType ?? 'MANUAL',
+          threadKey: command.threadKey,
+          evidence: command.evidence ?? null,
+          explanation: command.explanation ?? null,
+          recommendedAction: command.recommendedAction ?? null,
+          severityScore: command.severityScore,
+          expiresAt: command.expiresAt ?? null,
         })
       );
 
-      const createdAlert = this.alertAssembler.toEntity(response);
+      const alert = this.alertAssembler.toEntity(response);
+      this.store.prependAlert(alert);
 
-      this.alertsSignal.set([createdAlert, ...this.alertsSignal()]);
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('alerts.createError');
+      this.store.setError('alerts.createError');
       return false;
-    } finally {
-      this.loadingSignal.set(false);
     }
   }
 
-  async markAsRead(payload: MarkAlertAsReadCommand): Promise<boolean> {
+  async markAsRead(command: MarkAlertAsReadCommand): Promise<boolean> {
+    this.store.clearMessages();
+
     try {
       const response = await firstValueFrom(
-        this.alertsApi.markAsRead(payload.alertId)
+        this.alertsApi.markAsRead(command.alertId)
       );
 
       const updatedAlert = this.alertAssembler.toEntity(response);
 
-      this.alertsSignal.set(
-        this.alertsSignal().map((alert) =>
-          alert.id === payload.alertId ? updatedAlert : alert
-        )
-      );
+      this.store.updateAlert(updatedAlert);
+
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('alerts.markAsReadError');
+      this.store.setError('alerts.markAsReadError');
+      return false;
+    }
+  }
+
+  async dismissAlert(alertId: number, minutes = 10): Promise<boolean> {
+    this.store.clearMessages();
+
+    try {
+      const response = await firstValueFrom(
+        this.alertsApi.dismiss(alertId, minutes)
+      );
+
+      const updatedAlert = this.alertAssembler.toEntity(response);
+      this.store.updateAlert(updatedAlert);
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('alerts.dismissError');
+      return false;
+    }
+  }
+
+  async resolveAlert(alertId: number): Promise<boolean> {
+    this.store.clearMessages();
+
+    try {
+      const response = await firstValueFrom(
+        this.alertsApi.resolve(alertId)
+      );
+
+      const updatedAlert = this.alertAssembler.toEntity(response);
+      this.store.updateAlert(updatedAlert);
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('alerts.resolveError');
+      return false;
+    }
+  }
+
+  async deleteAlert(alertId: number): Promise<boolean> {
+    this.store.clearMessages();
+
+    try {
+      await firstValueFrom(this.alertsApi.delete(alertId));
+      this.store.removeAlert(alertId);
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('alerts.deleteError');
       return false;
     }
   }
 
   async loadAlertRules(): Promise<void> {
-    try {
-      const responses = await firstValueFrom(
-        this.alertRulesApi.findAllForCurrentUser()
-      );
+    const responses = await firstValueFrom(
+      this.alertRulesApi.findAllForCurrentUser()
+    );
 
-      this.alertRulesSignal.set(
-        responses.map((response) => this.alertRuleAssembler.toEntity(response))
-      );
-    } catch (error) {
-      console.error(error);
-      this.errorSignal.set('alertRules.loadError');
-    }
+    const alertRules = responses.map((response) =>
+      this.alertRuleAssembler.toEntity(response)
+    );
+
+    this.store.setAlertRules(alertRules);
   }
 
-  async createAlertRule(
-    command: CreateAlertRuleCommand
-  ): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async createAlertRule(command: CreateAlertRuleCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
       if (!command.name.trim() || command.threshold <= 0) {
-        this.errorSignal.set('alertRules.createError');
+        this.store.setError('alertRules.createError');
         return false;
       }
 
@@ -212,23 +278,23 @@ export class NotificationsFacade {
         })
       );
 
-      const alertRule = this.alertRuleAssembler.toEntity(response);
-      this.alertRulesSignal.set([alertRule, ...this.alertRulesSignal()]);
+      const rule = this.alertRuleAssembler.toEntity(response);
+      this.store.prependAlertRule(rule);
+
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('alertRules.createError');
+      this.store.setError('alertRules.createError');
       return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
   async updateAlertRuleStatus(
     command: UpdateAlertRuleStatusCommand
   ): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+    this.startRequest();
 
     try {
       const response = await firstValueFrom(
@@ -237,42 +303,157 @@ export class NotificationsFacade {
 
       const updatedRule = this.alertRuleAssembler.toEntity(response);
 
-      this.alertRulesSignal.set(
-        this.alertRulesSignal().map((rule) =>
-          rule.id === command.alertRuleId ? updatedRule : rule
-        )
-      );
+      this.store.updateAlertRule(updatedRule);
 
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('alertRules.updateError');
+      this.store.setError('alertRules.updateError');
       return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async loadNotificationPreference(): Promise<void> {
-    try {
-      const response = await firstValueFrom(
-        this.notificationPreferencesApi.findCurrent()
-      );
+  async deleteAlertRule(alertRuleId: number): Promise<boolean> {
+    this.startRequest();
 
-      this.notificationPreferenceSignal.set(
-        this.notificationPreferenceAssembler.toEntity(response)
-      );
+    try {
+      await firstValueFrom(this.alertRulesApi.delete(alertRuleId));
+      this.store.removeAlertRule(alertRuleId);
+      return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('notificationPreferences.loadError');
+      this.store.setError('alertRules.deleteError');
+      return false;
+    } finally {
+      this.finishRequest();
     }
+  }
+
+  async loadAlertRuleProfiles(): Promise<void> {
+    const responses = await firstValueFrom(
+      this.alertRuleProfilesApi.findAllForCurrentUser()
+    );
+
+    const profiles = responses.map((response) => new AlertRuleProfile({
+      id: response.id,
+      userId: response.userId,
+      name: response.name,
+      description: response.description,
+      scopeType: response.scopeType,
+      scopeId: response.scopeId ?? null,
+      mode: response.mode,
+      sensitivity: response.sensitivity,
+      active: response.active,
+    }));
+
+    this.store.setAlertRuleProfiles(profiles);
+  }
+
+  async createAlertRuleProfile(ruleProfile: {
+    name: string;
+    description?: string;
+    scopeType?: 'GENERAL' | 'WORKPLACE' | 'ROOM' | 'DEVICE' | 'GROUP' | 'ROUTINE' | 'GOAL';
+    scopeId?: string | null;
+    mode?: 'BALANCED' | 'SAVINGS' | 'PROTECTION';
+    sensitivity?: 'LOW' | 'NORMAL' | 'HIGH' | 'STRICT';
+  }): Promise<boolean> {
+    this.startRequest();
+
+    try {
+      const response = await firstValueFrom(
+        this.alertRuleProfilesApi.create({
+          name: ruleProfile.name.trim(),
+          description: ruleProfile.description ?? '',
+          scopeType: ruleProfile.scopeType ?? 'GENERAL',
+          scopeId: ruleProfile.scopeId ?? null,
+          mode: ruleProfile.mode ?? 'BALANCED',
+          sensitivity: ruleProfile.sensitivity ?? 'NORMAL',
+        })
+      );
+
+      const profile = new AlertRuleProfile({
+        id: response.id,
+        userId: response.userId,
+        name: response.name,
+        description: response.description,
+        scopeType: response.scopeType,
+        scopeId: response.scopeId ?? null,
+        mode: response.mode,
+        sensitivity: response.sensitivity,
+        active: response.active,
+      });
+
+      this.store.setAlertRuleProfiles([profile, ...this.store.alertRuleProfiles()]);
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('alertRules.profileCreateError');
+      return false;
+    } finally {
+      this.finishRequest();
+    }
+  }
+
+  async evaluateRules(evaluationRequest: {
+    scopeType?: 'GENERAL' | 'WORKPLACE' | 'ROOM' | 'DEVICE' | 'GROUP' | 'ROUTINE' | 'GOAL';
+    scopeId?: string | null;
+    observedValue?: number;
+  } = {}): Promise<RuleEvaluationResult | null> {
+    try {
+      const response = await firstValueFrom(
+        this.alertRulesApi.evaluate({
+          scopeType: evaluationRequest.scopeType ?? 'GENERAL',
+          scopeId: evaluationRequest.scopeId ?? null,
+          observedValue: evaluationRequest.observedValue ?? 0,
+        })
+      );
+
+      const result: RuleEvaluationResult = {
+        userId: response.userId,
+        scopeType: response.scopeType,
+        scopeId: response.scopeId ?? null,
+        level: response.level,
+        severityScore: response.severityScore,
+        evidence: response.evidence,
+        explanation: response.explanation,
+        recommendedAction: response.recommendedAction,
+        sourceType: response.sourceType,
+        sourceId: response.sourceId ?? null,
+        eventType: response.eventType,
+        threadKey: response.threadKey,
+        activeEvaluatorCount: response.activeEvaluatorCount,
+        totalWeight: response.totalWeight,
+      };
+
+      this.store.setRuleEvaluationResult(result);
+      return result;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('alertRules.evaluateError');
+      return null;
+    }
+  }
+
+  clearRuleEvaluationResult(): void {
+    this.store.setRuleEvaluationResult(null);
+  }
+
+  async loadNotificationPreference(): Promise<void> {
+    const response = await firstValueFrom(
+      this.notificationPreferencesApi.findCurrent()
+    );
+
+    this.store.setNotificationPreference(
+      this.notificationPreferenceAssembler.toEntity(response)
+    );
   }
 
   async updateNotificationPreference(
     command: UpdateNotificationPreferenceCommand
   ): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+    this.startRequest();
 
     try {
       const response = await firstValueFrom(
@@ -306,35 +487,40 @@ export class NotificationsFacade {
         })
       );
 
-      this.notificationPreferenceSignal.set(
+      this.store.setNotificationPreference(
         this.notificationPreferenceAssembler.toEntity(response)
       );
 
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('notificationPreferences.updateError');
+      this.store.setError('notificationPreferences.updateError');
       return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
+  }
+
+  clearMessages(): void {
+    this.store.clearMessages();
   }
 
   updateNotificationClassificationPolicy(
     policy: NotificationClassificationPolicy
   ): void {
-    this.notificationClassificationPolicySignal.set(
-      normalizeNotificationClassificationPolicy(policy)
-    );
+    this.store.setNotificationClassificationPolicy(policy);
   }
 
-  constructor(
-    private readonly alertsApi: AlertsApiService,
-    private readonly alertRulesApi: AlertRulesApiService,
-    private readonly notificationPreferencesApi: NotificationPreferencesApiService,
-    private readonly alertPriorityService: AlertPriorityService,
-    private readonly notificationChannelPolicy: NotificationChannelPolicyService,
-    private readonly billingFacade: BillingFacade,
-    private readonly planPermissionService: PlanPermissionService
-  ) {}
+  getPriorityValue(level: AlertLevel): number {
+    return this.store.getPriorityValue(level);
+  }
+
+  private startRequest(): void {
+    this.store.setLoading(true);
+    this.store.clearMessages();
+  }
+
+  private finishRequest(): void {
+    this.store.setLoading(false);
+  }
 }

@@ -1,4 +1,5 @@
 import { BaseAssembler } from '../../../shared/infrastructure/assemblers/base.assembler';
+
 import { Alert } from '../../domain/model/alert.entity';
 import { AlertResource } from '../resources/alert.resource';
 import { AlertResponse } from '../responses/alert.response';
@@ -56,8 +57,8 @@ export class AlertAssembler extends BaseAssembler<
       repeatCount: entity.repeatCount,
       active: entity.active,
       resolved: entity.resolved,
-      createdAt: entity.createdAt,
       read: entity.read,
+      createdAt: entity.createdAt,
       firstDetectedAt: entity.firstDetectedAt,
       lastTriggeredAt: entity.lastTriggeredAt,
       dismissedUntil: entity.dismissedUntil,
