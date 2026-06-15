@@ -17,4 +17,17 @@ export const IAM_ROUTES: Routes = [
         (m) => m.RegisterPageComponent
       ),
   },
+  {
+    path: 'iam/recover-password',
+    data: { title: 'Recover Password' },
+    loadComponent: () =>
+      import('../pages/recover-password/recover-password-page.component').then(
+        (m) => m.RecoverPasswordPageComponent
+      ),
+  },
+  {
+    path: 'iam/profile',
+    redirectTo: 'settings/profile',
+    pathMatch: 'full',
+  },
 ];
