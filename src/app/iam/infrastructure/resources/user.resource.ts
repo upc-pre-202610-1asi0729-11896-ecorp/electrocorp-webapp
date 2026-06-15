@@ -1,6 +1,7 @@
 import { BaseResource } from '../../../shared/infrastructure/resources/base.resource';
 
-export interface SignInResource extends BaseResource {
+export interface UserResource extends BaseResource {
+  fullName: string;
   email: string;
-  password: string;
+  accessProfileId?: number;
 }
