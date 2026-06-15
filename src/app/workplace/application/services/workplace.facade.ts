@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 
 import { CreateLocationCommand } from '../commands/create-location.command';
+import { UpdateLocationCommand } from '../commands/update-location.command';
 import { CreateRoomDto } from '../dtos/create-room.dto';
 import { AssignDeviceDto } from '../dtos/assign-device.dto';
 
@@ -148,6 +149,28 @@ export class WorkplaceFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('workplace.createLocationError');
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async updateLocation(payload: UpdateLocationCommand): Promise<void> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      await firstValueFrom(
+        this.locationsApi.update(payload.locationId, {
+          name: payload.name,
+          address: payload.address,
+          type: payload.type,
+        })
+      );
+
+      await this.loadLocations();
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('workplace.updateLocationError');
     } finally {
       this.loadingSignal.set(false);
     }
