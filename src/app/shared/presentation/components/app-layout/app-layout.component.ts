@@ -1,14 +1,18 @@
-import { Component, OnInit } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { TranslatePipe } from '@ngx-translate/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { filter } from 'rxjs';
 
-import {
-  AppLanguage,
-  UiPreferencesService,
-} from '../../../application/services/ui-preferences.service';
-import { TranslationFacadeService } from '../../../application/services/translation.service';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+
 import { AuthSessionService } from '../../../application/services/auth-session.service';
+import { UiPreferencesService } from '../../../application/services/ui-preferences.service';
+import { IamFacade } from '../../../../iam/application/services/iam.facade';
 import { FooterComponent } from '../footer/footer.component';
+import { HeaderComponent } from '../header/header.component';
+import { ToastContainerComponent } from '../toast-container/toast-container.component';
+import { WorkplaceFacade } from '../../../../workplace/application/services/workplace.facade';
+import { ConfirmDialogService } from '../../../application/services/confirm-dialog.service';
+import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-layout',
@@ -17,36 +21,140 @@ import { FooterComponent } from '../footer/footer.component';
     RouterOutlet,
     RouterLink,
     RouterLinkActive,
-    TranslatePipe,
+    TranslateModule,
     FooterComponent,
+    HeaderComponent,
+    ToastContainerComponent,
+    ConfirmDialogComponent,
   ],
   templateUrl: './app-layout.component.html',
-  styleUrl: './app-layout.component.scss',
+  styleUrls: ['./app-layout.component.scss'],
 })
-export class AppLayoutComponent implements OnInit {
-  constructor(
-    readonly uiPreferences: UiPreferencesService,
-    readonly authSession: AuthSessionService,
-    private readonly translationFacade: TranslationFacadeService,
-    private readonly router: Router
-  ) {}
+export class AppLayoutComponent {
+  readonly router = inject(Router);
+  readonly translate = inject(TranslateService);
+  readonly uiPreferences = inject(UiPreferencesService);
+  readonly authSession = inject(AuthSessionService);
+  readonly iamFacade = inject(IamFacade);
+  readonly workplaceFacade = inject(WorkplaceFacade);
+  readonly confirmDialog = inject(ConfirmDialogService);
 
-  async ngOnInit(): Promise<void> {
-    this.uiPreferences.restorePreferences();
-    this.authSession.restoreSession();
-    await this.translationFacade.initialize();
+  readonly currentUrl = signal(this.router.url);
+  readonly isDrawerOpen = signal(false);
+
+  readonly isAuthScreen = computed(() => {
+    const url = this.currentUrl();
+    return (
+      url.startsWith('/iam/login') ||
+      url.startsWith('/iam/register') ||
+      url.startsWith('/iam/recover-password')
+    );
+  });
+
+  readonly currentUser = computed(() => this.authSession.currentUser?.() ?? null);
+  readonly isAuthenticated = computed(() => this.authSession.isAuthenticated());
+  readonly isUserSidebarOpen = signal(false);
+  readonly requiresLocationSetup = computed(() => {
+    if (!this.isAuthenticated() || this.isAuthScreen()) {
+      return false;
+    }
+
+    if (this.workplaceFacade.loading() || this.workplaceFacade.locations().length > 0) {
+      return false;
+    }
+
+    const url = this.currentUrl().split('?')[0];
+    const allowedPrefixes = [
+      '/home',
+      '/spaces/sites',
+      '/workplace/locations',
+      '/workplace',
+      '/plans',
+      '/alerts/preferences',
+      '/notifications/preferences',
+      '/settings/billing',
+      '/settings/account',
+      '/settings/notifications',
+      '/settings/platform',
+      '/billing/history',
+      '/settings/profile',
+      '/settings/security',
+      '/iam/profile',
+      '/about',
+    ];
+
+    return !allowedPrefixes.some((prefix) => url === prefix || url.startsWith(`${prefix}/`));
+  });
+
+  private workplaceLoadRequested = false;
+
+  constructor() {
+    this.router.events
+      .pipe(filter((event) => event instanceof NavigationEnd))
+      .subscribe((event) => {
+        const navigation = event as NavigationEnd;
+        this.currentUrl.set(navigation.urlAfterRedirects);
+        this.ensureWorkplaceLoaded();
+      });
+
+    this.ensureWorkplaceLoaded();
   }
 
-  async switchLanguage(language: AppLanguage): Promise<void> {
-    await this.translationFacade.changeLanguage(language);
+  openDrawer(): void {
+    this.isDrawerOpen.set(true);
+  }
+
+  closeDrawer(): void {
+    this.isDrawerOpen.set(false);
   }
 
   toggleTheme(): void {
     this.uiPreferences.toggleTheme();
   }
 
-  async signOut(): Promise<void> {
-    this.authSession.closeSession();
-    await this.router.navigate(['/iam/login']);
+  signOut(): void {
+    this.iamFacade.signOut();
+  }
+
+  currentUserName(): string {
+    return this.currentUser()?.fullName || 'Usuario';
+  }
+
+  currentUserEmail(): string {
+    return this.currentUser()?.email || 'Sin correo registrado';
+  }
+
+  currentUserRole(): string {
+    return this.currentUser()?.accessProfileName || 'Member';
+  }
+
+  currentUserInitial(): string {
+    return this.currentUserName().trim().charAt(0).toUpperCase() || 'U';
+  }
+
+  currentUserPhotoUrl(): string | null {
+    return null;
+  }
+
+  toggleUserSidebar(): void {
+    this.isUserSidebarOpen.update((value) => !value);
+  }
+
+  closeUserSidebar(): void {
+    this.isUserSidebarOpen.set(false);
+  }
+
+  private ensureWorkplaceLoaded(): void {
+    if (!this.isAuthenticated()) {
+      this.workplaceLoadRequested = false;
+      return;
+    }
+
+    if (this.isAuthScreen() || this.workplaceLoadRequested) {
+      return;
+    }
+
+    this.workplaceLoadRequested = true;
+    void this.workplaceFacade.loadWorkplace();
   }
 }

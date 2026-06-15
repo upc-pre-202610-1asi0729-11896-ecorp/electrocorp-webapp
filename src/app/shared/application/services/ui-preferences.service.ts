@@ -1,43 +1,122 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
+import { Injectable, effect, inject, signal } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 
+import { DEFAULT_LANGUAGE, SUPPORTED_LANGUAGES } from '../../infrastructure/constants/app-language';
 import { STORAGE_KEYS } from '../../infrastructure/constants/storage-keys';
-import { LocalStorageService } from '../../infrastructure/storage/local-storage.service';
-import { ThemeService } from './theme.service';
 
-export type AppLanguage = 'es' | 'en' | 'pt';
+type LanguageCode = 'es' | 'en' | 'pt';
+export type AppTheme = 'light' | 'dark';
+
+const LEGACY_LANGUAGE_KEY = 'electrocorp_language';
+const LEGACY_THEME_KEY = 'electrocorp_theme';
 
 @Injectable({
-  providedIn: 'root',
+  providedIn: 'root'
 })
 export class UiPreferencesService {
-  private readonly localStorage = inject(LocalStorageService);
-  private readonly themeService = inject(ThemeService);
+  private readonly document = inject(DOCUMENT);
+  private readonly translate = inject(TranslateService);
+  private readonly storage = this.document.defaultView?.localStorage;
 
-  private readonly languageSignal = signal<AppLanguage>(
-    (this.localStorage.getItem(STORAGE_KEYS.language) as AppLanguage) ?? 'es'
-  );
+  readonly currentLanguage = signal<LanguageCode>(this.readStoredLanguage());
 
-  private readonly darkModeSignal = signal<boolean>(
-    this.localStorage.getItem(STORAGE_KEYS.darkMode) !== 'false'
-  );
+  readonly isDarkMode = signal(this.readStoredTheme() === 'dark');
 
-  readonly language = computed(() => this.languageSignal());
-  readonly darkMode = computed(() => this.darkModeSignal());
+  constructor() {
+    this.translate.addLangs(SUPPORTED_LANGUAGES);
+    this.translate.setFallbackLang(DEFAULT_LANGUAGE);
+    this.translate.use(this.currentLanguage());
 
-  setLanguage(language: AppLanguage): void {
-    this.languageSignal.set(language);
-    this.localStorage.setItem(STORAGE_KEYS.language, language);
+    effect(() => {
+      const language = this.currentLanguage();
+      this.writeStorage(STORAGE_KEYS.language, language);
+      this.writeStorage(LEGACY_LANGUAGE_KEY, language);
+      this.translate.use(language);
+    });
+
+    effect(() => {
+      const darkMode = this.isDarkMode();
+      this.applyTheme(darkMode ? 'dark' : 'light');
+    });
+  }
+
+  setLanguage(language: LanguageCode): void {
+    this.currentLanguage.set(language);
+  }
+
+  toggleLanguage(): void {
+    const current = this.currentLanguage();
+
+    const nextLanguage: LanguageCode =
+      current === 'es' ? 'en' :
+        current === 'en' ? 'pt' :
+          'es';
+
+    this.setLanguage(nextLanguage);
   }
 
   toggleTheme(): void {
-    const nextValue = !this.darkModeSignal();
-
-    this.darkModeSignal.set(nextValue);
-    this.localStorage.setItem(STORAGE_KEYS.darkMode, String(nextValue));
-    this.themeService.applyTheme(nextValue);
+    this.isDarkMode.update((value) => !value);
   }
 
-  restorePreferences(): void {
-    this.themeService.applyTheme(this.darkModeSignal());
+  setTheme(theme: AppTheme): void {
+    this.isDarkMode.set(theme === 'dark');
+  }
+
+  private applyTheme(theme: AppTheme): void {
+    const root = this.document.documentElement;
+
+    root.classList.remove('light-theme', 'dark-theme');
+    root.classList.add(`${theme}-theme`);
+    root.dataset['theme'] = theme;
+    root.style.colorScheme = theme;
+
+    this.writeStorage(LEGACY_THEME_KEY, theme);
+    this.writeStorage(STORAGE_KEYS.darkMode, String(theme === 'dark'));
+  }
+
+  private readStoredLanguage(): LanguageCode {
+    const storedLanguage =
+      this.readStorage(STORAGE_KEYS.language) ??
+      this.readStorage(LEGACY_LANGUAGE_KEY);
+
+    return this.isSupportedLanguage(storedLanguage) ? storedLanguage : DEFAULT_LANGUAGE;
+  }
+
+  private readStoredTheme(): AppTheme {
+    const storedTheme = this.readStorage(LEGACY_THEME_KEY);
+
+    if (storedTheme === 'light' || storedTheme === 'dark') {
+      return storedTheme;
+    }
+
+    const storedDarkMode = this.readStorage(STORAGE_KEYS.darkMode);
+
+    if (storedDarkMode === 'false') {
+      return 'light';
+    }
+
+    return 'dark';
+  }
+
+  private isSupportedLanguage(language: string | null): language is LanguageCode {
+    return SUPPORTED_LANGUAGES.includes(language as LanguageCode);
+  }
+
+  private readStorage(key: string): string | null {
+    try {
+      return this.storage?.getItem(key) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  private writeStorage(key: string, value: string): void {
+    try {
+      this.storage?.setItem(key, value);
+    } catch {
+      return;
+    }
   }
 }

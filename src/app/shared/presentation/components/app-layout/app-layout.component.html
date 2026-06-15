@@ -1,93 +1,99 @@
 <div class="app-shell">
-  <header class="topbar">
-    <a class="brand" routerLink="/home">
-      <span class="brand-icon">⚡</span>
-      <span>ElectroCorp</span>
-    </a>
+  <app-header
+    [showPrivateNavigation]="!isAuthScreen() && isAuthenticated()"
+    [isDarkMode]="uiPreferences.isDarkMode()"
+    [userInitial]="currentUserInitial()"
+    (themeToggled)="toggleTheme()"
+    (userMenuToggled)="toggleUserSidebar()"
+  />
 
-    @if (authSession.isAuthenticated()) {
-      <nav class="nav">
-        <a routerLink="/home" routerLinkActive="active" class="nav-link">
-          {{ 'nav.home' | translate }}
+  @if (!isAuthScreen() && isAuthenticated()) {
+    <aside class="user-sidebar ec-scrollbar" [class.open]="isUserSidebarOpen()">
+      <div class="user-sidebar-header">
+        <div class="profile-avatar">
+          @if (currentUserPhotoUrl()) {
+            <img [src]="currentUserPhotoUrl()" alt="User profile photo" />
+          } @else {
+            <span>{{ currentUserInitial() }}</span>
+          }
+        </div>
+
+        <div class="profile-info">
+          <strong>{{ currentUserName() }}</strong>
+          <span>{{ currentUserEmail() }}</span>
+          <small>{{ currentUserRole() }}</small>
+        </div>
+      </div>
+
+      <nav class="private-nav">
+        <a routerLink="/settings/profile" routerLinkActive="active" (click)="closeUserSidebar()">
+          <span aria-hidden="true">&#9881;&#65039;</span>
+          {{ 'nav.userSettings' | translate }}
         </a>
 
-        <a routerLink="/about" routerLinkActive="active" class="nav-link">
+        <a routerLink="/about" routerLinkActive="active" (click)="closeUserSidebar()">
+          <span aria-hidden="true">&#8505;&#65039;</span>
           {{ 'nav.about' | translate }}
         </a>
 
-        <a routerLink="/device-control/devices" routerLinkActive="active" class="nav-link">
-          {{ 'nav.devices' | translate }}
-        </a>
-
-        <a routerLink="/device-control/routines" routerLinkActive="active" class="nav-link">
-          {{ 'nav.routines' | translate }}
-        </a>
-
-        <a routerLink="/energy-monitoring/dashboard" routerLinkActive="active" class="nav-link">
-          {{ 'nav.energy' | translate }}
-        </a>
-
-        <a routerLink="/energy-monitoring/history" routerLinkActive="active" class="nav-link">
-          {{ 'nav.history' | translate }}
-        </a>
-
-        <a routerLink="/billing/plans" routerLinkActive="active" class="nav-link">
+        <a routerLink="/plans" routerLinkActive="active" (click)="closeUserSidebar()">
+          <span aria-hidden="true">&#128179;</span>
           {{ 'nav.plans' | translate }}
         </a>
-
-        <a routerLink="/notifications/alerts" routerLinkActive="active" class="nav-link">
-          {{ 'nav.alerts' | translate }}
-        </a>
       </nav>
-    }
 
-    <div class="actions">
-      <button
-        type="button"
-        class="lang-btn"
-        [class.active]="uiPreferences.language() === 'es'"
-        (click)="switchLanguage('es')"
-      >
-        ES
-      </button>
-
-      <button
-        type="button"
-        class="lang-btn"
-        [class.active]="uiPreferences.language() === 'en'"
-        (click)="switchLanguage('en')"
-      >
-        EN
-      </button>
-
-      <button
-        type="button"
-        class="lang-btn"
-        [class.active]="uiPreferences.language() === 'pt'"
-        (click)="switchLanguage('pt')"
-      >
-        PT
-      </button>
-
-      <button type="button" class="theme-btn" (click)="toggleTheme()">
-        @if (uiPreferences.darkMode()) {
-          ☀️
-        } @else {
-          🌙
-        }
-      </button>
-
-      @if (authSession.isAuthenticated()) {
-        <button type="button" class="logout-btn" (click)="signOut()">
+      <div class="user-sidebar-footer">
+        <button type="button" class="logout-button" (click)="signOut()">
           {{ 'auth.logout' | translate }}
         </button>
-      }
-    </div>
-  </header>
+      </div>
+    </aside>
 
-  <main class="app-content">
-    <router-outlet />
+    @if (isUserSidebarOpen()) {
+      <button
+        type="button"
+        class="sidebar-backdrop"
+        aria-label="Close user panel"
+        (click)="closeUserSidebar()"
+      ></button>
+    }
+  }
+
+  <main class="content ec-scrollbar">
+    @if (requiresLocationSetup()) {
+      <section class="location-required-panel">
+        <p class="location-required-panel__eyebrow">
+          {{ 'onboarding.locationRequiredEyebrow' | translate }}
+        </p>
+        <h1>{{ 'onboarding.locationRequiredTitle' | translate }}</h1>
+        <p>{{ 'onboarding.locationRequiredDescription' | translate }}</p>
+        <a routerLink="/spaces/sites">
+          {{ 'onboarding.createLocationAction' | translate }}
+        </a>
+      </section>
+    } @else {
+      <router-outlet />
+    }
   </main>
 
   <app-footer />
+
+  @if (confirmDialog.dialog(); as dialog) {
+    <app-confirm-dialog
+      [open]="true"
+      [title]="dialog.title"
+      [message]="dialog.message"
+      [detail]="dialog.detail"
+      [confirmLabel]="dialog.confirmLabel"
+      [cancelLabel]="dialog.cancelLabel"
+      [tone]="dialog.tone"
+      [requiredText]="dialog.requiredText"
+      [requiredTextLabel]="dialog.requiredTextLabel"
+      [requiredTextHint]="dialog.requiredTextHint"
+      (confirmed)="confirmDialog.confirmCurrent()"
+      (cancelled)="confirmDialog.cancelCurrent()"
+    />
+  }
+
+  <app-toast-container />
 </div>
