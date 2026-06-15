@@ -3,6 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from '../../../shared/infrastructure/api/api-config';
+import { DeviceStatus } from '../../domain/model/device.entity';
 import { DeviceGroupResource } from '../resources/device-group.resource';
 import { DeviceGroupResponse } from '../responses/device-group.response';
 
@@ -29,6 +30,18 @@ export class DeviceGroupsApiService {
     return this.http.patch<DeviceGroupResponse>(
       `${this.resourcePath}/${groupId}`,
       resource
+    );
+  }
+
+  executeAction(payload: {
+    groupId: number;
+    status: DeviceStatus;
+  }): Observable<void> {
+    return this.http.patch<void>(
+      `${this.resourcePath}/${payload.groupId}/execute`,
+      {
+        status: payload.status,
+      }
     );
   }
 }
