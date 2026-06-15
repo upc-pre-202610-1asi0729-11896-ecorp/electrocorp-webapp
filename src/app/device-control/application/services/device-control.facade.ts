@@ -12,6 +12,7 @@ import { RoutineConflictCheckerService } from '../../domain/services/routine-con
 
 import { CreateDeviceCommand } from '../commands/create-device.command';
 import { CreateDeviceGroupCommand } from '../commands/create-device-group.command';
+import { ExecuteGroupActionCommand } from '../commands/execute-group-action.command';
 import { UpdateDeviceGroupCommand } from '../commands/update-device-group.command';
 import { UpdateDeviceStatusCommand } from '../commands/update-device-status.command';
 import { CreateRoutineDto } from '../dtos/create-routine.dto';
@@ -293,6 +294,40 @@ export class DeviceControlFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('deviceGroups.updateError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async executeGroupAction(
+    command: ExecuteGroupActionCommand
+  ): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const group = this.deviceGroupsSignal().find(
+        (item) => item.id === command.groupId
+      );
+
+      if (!this.deviceGroupPolicy.canExecuteGroupAction(group)) {
+        this.errorSignal.set('deviceGroups.executeError');
+        return false;
+      }
+
+      await firstValueFrom(
+        this.deviceGroupsApi.executeAction({
+          groupId: command.groupId,
+          status: command.status,
+        })
+      );
+
+      await this.loadDevices();
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('deviceGroups.executeError');
       return false;
     } finally {
       this.loadingSignal.set(false);
