@@ -6,16 +6,26 @@ import { PlanPermissionService } from '../../../billing/domain/services/plan-per
 
 import { Alert } from '../../domain/model/alert.entity';
 import { AlertRule } from '../../domain/model/alert-rule.entity';
+import {
+  DEFAULT_NOTIFICATION_CLASSIFICATION_POLICY,
+  NotificationClassificationPolicy,
+  normalizeNotificationClassificationPolicy,
+} from '../../domain/model/notification-classification-policy.model';
+import { NotificationPreference } from '../../domain/model/notification-preference.entity';
 import { CreateAlertRuleCommand } from '../commands/create-alert-rule.command';
 import { CreateAlertCommand } from '../commands/create-alert.command';
 import { MarkAlertAsReadCommand } from '../commands/mark-alert-as-read.command';
 import { UpdateAlertRuleStatusCommand } from '../commands/update-alert-rule-status.command';
+import { UpdateNotificationPreferenceCommand } from '../commands/update-notification-preference.command';
 import { CreateAlertDto } from '../dtos/create-alert.dto';
 import { AlertRulesApiService } from '../../infrastructure/api/alert-rules-api.service';
 import { AlertsApiService } from '../../infrastructure/api/alerts-api.service';
+import { NotificationPreferencesApiService } from '../../infrastructure/api/notification-preferences-api.service';
 import { AlertRuleAssembler } from '../../infrastructure/assemblers/alert-rule.assembler';
 import { AlertAssembler } from '../../infrastructure/assemblers/alert.assembler';
+import { NotificationPreferenceAssembler } from '../../infrastructure/assemblers/notification-preference.assembler';
 import { AlertPriorityService } from '../../domain/services/alert-priority.service';
+import { NotificationChannelPolicyService } from '../../domain/services/notification-channel-policy.service';
 
 @Injectable({
   providedIn: 'root',
@@ -23,14 +33,28 @@ import { AlertPriorityService } from '../../domain/services/alert-priority.servi
 export class NotificationsFacade {
   private readonly alertAssembler = new AlertAssembler();
   private readonly alertRuleAssembler = new AlertRuleAssembler();
+  private readonly notificationPreferenceAssembler =
+    new NotificationPreferenceAssembler();
 
   private readonly alertsSignal = signal<Alert[]>([]);
   private readonly alertRulesSignal = signal<AlertRule[]>([]);
+  private readonly notificationPreferenceSignal =
+    signal<NotificationPreference | null>(null);
+  private readonly notificationClassificationPolicySignal =
+    signal<NotificationClassificationPolicy>(
+      DEFAULT_NOTIFICATION_CLASSIFICATION_POLICY
+    );
   private readonly loadingSignal = signal<boolean>(false);
   private readonly errorSignal = signal<string | null>(null);
 
   readonly alerts = computed(() => this.alertsSignal());
   readonly alertRules = computed(() => this.alertRulesSignal());
+  readonly notificationPreference = computed(() =>
+    this.notificationPreferenceSignal()
+  );
+  readonly notificationClassificationPolicy = computed(() =>
+    this.notificationClassificationPolicySignal()
+  );
   readonly loading = computed(() => this.loadingSignal());
   readonly error = computed(() => this.errorSignal());
 
@@ -82,6 +106,12 @@ export class NotificationsFacade {
         this.errorSignal.set('alerts.planLimitReached');
         return false;
       }
+
+      const canNotify = this.notificationChannelPolicy.canNotify(
+        this.notificationPreferenceSignal(),
+        payload.level
+      );
+      void canNotify;
 
       const response = await firstValueFrom(
         this.alertsApi.createAlert({
@@ -223,10 +253,87 @@ export class NotificationsFacade {
     }
   }
 
+  async loadNotificationPreference(): Promise<void> {
+    try {
+      const response = await firstValueFrom(
+        this.notificationPreferencesApi.findCurrent()
+      );
+
+      this.notificationPreferenceSignal.set(
+        this.notificationPreferenceAssembler.toEntity(response)
+      );
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('notificationPreferences.loadError');
+    }
+  }
+
+  async updateNotificationPreference(
+    command: UpdateNotificationPreferenceCommand
+  ): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const response = await firstValueFrom(
+        this.notificationPreferencesApi.save({
+          emailEnabled: command.emailEnabled,
+          pushEnabled: command.pushEnabled,
+          inAppEnabled: command.inAppEnabled,
+          toastEnabled: command.toastEnabled,
+          dashboardEnabled: command.dashboardEnabled,
+          criticalOnly: command.criticalOnly,
+          minimumLevel: command.minimumLevel,
+          scopeType: command.scopeType,
+          scopeId: command.scopeId,
+          allowedLevels: command.allowedLevels,
+          allowedSourceTypes: command.allowedSourceTypes,
+          quietHoursEnabled: command.quietHoursEnabled,
+          quietHoursStart: command.quietHoursStart,
+          quietHoursEnd: command.quietHoursEnd,
+          criticalBreaksQuietHours: command.criticalBreaksQuietHours,
+          groupSimilarAlerts: command.groupSimilarAlerts,
+          remindersEnabled: command.remindersEnabled,
+          cooldownMinutes: command.cooldownMinutes,
+          maxAlertsPerHour: command.maxAlertsPerHour,
+          routineNightSilence: command.routineNightSilence,
+          goalDeadlineAlerts: command.goalDeadlineAlerts,
+          maintenanceDeviceAlerts: command.maintenanceDeviceAlerts,
+          systemRecommendations: command.systemRecommendations,
+          dailySummaryEnabled: command.dailySummaryEnabled,
+          weeklySummaryEnabled: command.weeklySummaryEnabled,
+          defaultDeliveryMode: command.defaultDeliveryMode,
+        })
+      );
+
+      this.notificationPreferenceSignal.set(
+        this.notificationPreferenceAssembler.toEntity(response)
+      );
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('notificationPreferences.updateError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  updateNotificationClassificationPolicy(
+    policy: NotificationClassificationPolicy
+  ): void {
+    this.notificationClassificationPolicySignal.set(
+      normalizeNotificationClassificationPolicy(policy)
+    );
+  }
+
   constructor(
     private readonly alertsApi: AlertsApiService,
     private readonly alertRulesApi: AlertRulesApiService,
+    private readonly notificationPreferencesApi: NotificationPreferencesApiService,
     private readonly alertPriorityService: AlertPriorityService,
+    private readonly notificationChannelPolicy: NotificationChannelPolicyService,
     private readonly billingFacade: BillingFacade,
     private readonly planPermissionService: PlanPermissionService
   ) {}
