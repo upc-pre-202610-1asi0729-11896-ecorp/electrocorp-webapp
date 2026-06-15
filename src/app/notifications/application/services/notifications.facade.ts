@@ -5,6 +5,7 @@ import { BillingFacade } from '../../../billing/application/services/billing.fac
 import { PlanPermissionService } from '../../../billing/domain/services/plan-permission.service';
 
 import { Alert } from '../../domain/model/alert.entity';
+import { CreateAlertCommand } from '../commands/create-alert.command';
 import { CreateAlertDto } from '../dtos/create-alert.dto';
 import { MarkAlertAsReadDto } from '../dtos/mark-alert-as-read.dto';
 import { AlertsApiService } from '../../infrastructure/api/alerts-api.service';
@@ -51,7 +52,7 @@ export class NotificationsFacade {
     }
   }
 
-  async createAlert(payload: CreateAlertDto): Promise<void> {
+  async createAlert(payload: CreateAlertDto | CreateAlertCommand): Promise<boolean> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -67,14 +68,27 @@ export class NotificationsFacade {
 
       if (!canCreateAlert) {
         this.errorSignal.set('alerts.planLimitReached');
-        return;
+        return false;
       }
 
       const response = await firstValueFrom(
-        this.alertsApi.create({
+        this.alertsApi.createAlert({
           title: payload.title,
           message: payload.message,
           level: payload.level,
+          sourceType: 'sourceType' in payload ? payload.sourceType ?? 'SYSTEM' : 'SYSTEM',
+          sourceId: 'sourceId' in payload ? payload.sourceId ?? null : null,
+          sourceLabel: 'sourceLabel' in payload ? payload.sourceLabel ?? null : null,
+          eventType: 'eventType' in payload ? payload.eventType ?? 'MANUAL' : 'MANUAL',
+          threadKey: 'threadKey' in payload ? payload.threadKey : undefined,
+          evidence: 'evidence' in payload ? payload.evidence ?? null : null,
+          explanation: 'explanation' in payload ? payload.explanation ?? null : null,
+          recommendedAction:
+            'recommendedAction' in payload
+              ? payload.recommendedAction ?? null
+              : null,
+          severityScore: 'severityScore' in payload ? payload.severityScore : undefined,
+          expiresAt: 'expiresAt' in payload ? payload.expiresAt ?? null : null,
           createdAt: new Date().toISOString().slice(0, 10),
           read: false,
         })
@@ -83,9 +97,11 @@ export class NotificationsFacade {
       const createdAlert = this.alertAssembler.toEntity(response);
 
       this.alertsSignal.set([createdAlert, ...this.alertsSignal()]);
+      return true;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('alerts.createError');
+      return false;
     } finally {
       this.loadingSignal.set(false);
     }

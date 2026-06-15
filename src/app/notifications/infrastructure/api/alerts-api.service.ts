@@ -20,6 +20,10 @@ export class AlertsApiService extends BaseApiService<
     super(http, 'alerts', new AlertAssembler());
   }
 
+  createAlert(resource: AlertResource): Observable<AlertResponse> {
+    return this.http.post<AlertResponse>(`${this.apiBaseUrl}/alerts`, resource);
+  }
+
   markAsRead(alertId: number): Observable<AlertResponse> {
     return this.http.patch<AlertResponse>(
       `${this.apiBaseUrl}/alerts/${alertId}`,

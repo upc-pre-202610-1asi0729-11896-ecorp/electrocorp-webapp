@@ -1,12 +1,10 @@
-import { BaseResource } from '../../../shared/infrastructure/resources/base.resource';
 import {
   AlertEventType,
   AlertLevel,
   AlertSourceType,
 } from '../../domain/model/alert.entity';
 
-export interface AlertResource extends BaseResource {
-  userId?: number;
+export interface CreateAlertCommand {
   title: string;
   message: string;
   level: AlertLevel;
@@ -19,16 +17,5 @@ export interface AlertResource extends BaseResource {
   explanation?: string | null;
   recommendedAction?: string | null;
   severityScore?: number;
-  repeatCount?: number;
-  active?: boolean;
-  resolved?: boolean;
-  read?: boolean;
-  readStatus?: boolean;
-  createdAt?: string;
-  firstDetectedAt?: string | null;
-  lastTriggeredAt?: string | null;
-  dismissedUntil?: string | null;
   expiresAt?: string | null;
-  expired?: boolean;
-  silenced?: boolean;
 }
