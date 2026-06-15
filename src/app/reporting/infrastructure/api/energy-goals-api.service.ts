@@ -25,4 +25,11 @@ export class EnergyGoalsApiService extends BaseApiService<
       `${this.apiBaseUrl}/energyGoals?userId=${userId}`
     );
   }
+
+  updateGoal(
+    goalId: number,
+    resource: Partial<EnergyGoalResource>
+  ): Observable<EnergyGoalResponse> {
+    return this.update(goalId, resource);
+  }
 }
