@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
+import { RecoverPasswordCommand } from '../commands/recover-password.command';
 import { SignInCommand } from '../commands/sign-in.command';
 import { SignUpCommand } from '../commands/sign-up.command';
 import { User } from '../../domain/model/user.entity';
@@ -138,6 +139,30 @@ export class IamFacade {
       email.endsWith('@outlook.com') ||
       email.endsWith('@hotmail.com')
     );
+  }
+
+  async recoverPassword(payload: RecoverPasswordCommand): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      if (!this.isValidEmail(payload.email)) {
+        this.errorSignal.set('auth.invalidEmail');
+        return false;
+      }
+
+      await firstValueFrom(
+        this.authApi.recoverPassword(payload.email.trim().toLowerCase())
+      );
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('auth.recoverPasswordError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
   }
 
   async restoreSession(): Promise<void> {
