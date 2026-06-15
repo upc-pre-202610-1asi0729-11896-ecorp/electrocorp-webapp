@@ -1,11 +1,13 @@
 import { computed, Injectable, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
-import { SignInDto } from '../dtos/sign-in.dto';
+import { SignInCommand } from '../commands/sign-in.command';
 import { SignUpDto } from '../dtos/sign-up.dto';
 import { User } from '../../domain/model/user.entity';
 import { AccessProfile } from '../../domain/model/access-profile.entity';
+import { AuthApiService } from '../../infrastructure/api/auth-api.service';
 import { IamApiService } from '../../infrastructure/api/iam-api.service';
 import { UserAssembler } from '../../infrastructure/assemblers/user.assembler';
 import { AccessProfileAssembler } from '../../infrastructure/assemblers/access-profile.assembler';
@@ -29,28 +31,26 @@ export class IamFacade {
   readonly isAuthenticated = computed(() => this.currentUserSignal() !== null);
 
   constructor(
+    private readonly authApi: AuthApiService,
     private readonly iamApi: IamApiService,
     private readonly authSession: AuthSessionService,
     private readonly router: Router
   ) {}
 
-  async signIn(payload: SignInDto): Promise<void> {
+  async signIn(payload: SignInCommand): Promise<void> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
     try {
-      const response = await this.iamApi.signIn({
+      const response = await firstValueFrom(this.authApi.signIn({
         email: payload.email,
         password: payload.password,
-      });
+      }));
 
       const user = this.userAssembler.toEntity(response.user);
-      const profiles = response.accessProfiles.map((profile) =>
-        this.accessProfileAssembler.toEntity(profile)
-      );
 
       this.currentUserSignal.set(user);
-      this.accessProfilesSignal.set(profiles);
+      this.accessProfilesSignal.set([]);
 
       this.authSession.startSession({
         id: user.id,
