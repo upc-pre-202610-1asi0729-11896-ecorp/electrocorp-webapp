@@ -3,11 +3,13 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 
+import { CreateSupportTicketCommand } from '../commands/create-support-ticket.command';
 import { CreateSupportTicketDto } from '../dtos/create-support-ticket.dto';
 import { CreateMaintenanceTicketDto } from '../dtos/create-maintenance-ticket.dto';
 
 import { SupportTicket } from '../../domain/model/support-ticket.entity';
 import { MaintenanceTicket } from '../../domain/model/maintenance-ticket.entity';
+import { TicketPriorityService } from '../../domain/services/ticket-priority.service';
 
 import { SupportTicketsApiService } from '../../infrastructure/api/support-tickets-api.service';
 import { MaintenanceTicketsApiService } from '../../infrastructure/api/maintenance-tickets-api.service';
@@ -33,23 +35,9 @@ export class ServiceManagementFacade {
   readonly error = computed(() => this.errorSignal());
 
   readonly supportTicketsSorted = computed(() => {
-    const priorityWeight: Record<string, number> = {
-      CRITICAL: 1,
-      HIGH: 2,
-      MEDIUM: 3,
-      LOW: 4,
-    };
-
-    return [...this.supportTicketsSignal()].sort((a, b) => {
-      const byPriority =
-        priorityWeight[a.priority] - priorityWeight[b.priority];
-
-      if (byPriority !== 0) {
-        return byPriority;
-      }
-
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+    return this.ticketPriorityService.sortSupportTickets(
+      this.supportTicketsSignal()
+    );
   });
 
   readonly maintenanceTicketsSorted = computed(() => {
@@ -145,7 +133,8 @@ export class ServiceManagementFacade {
   constructor(
     private readonly authSession: AuthSessionService,
     private readonly supportTicketsApi: SupportTicketsApiService,
-    private readonly maintenanceTicketsApi: MaintenanceTicketsApiService
+    private readonly maintenanceTicketsApi: MaintenanceTicketsApiService,
+    private readonly ticketPriorityService: TicketPriorityService
   ) {}
 
   async loadSupportTickets(): Promise<void> {
@@ -194,7 +183,9 @@ export class ServiceManagementFacade {
     }
   }
 
-  async createSupportTicket(payload: CreateSupportTicketDto): Promise<void> {
+  async createSupportTicket(
+    payload: CreateSupportTicketDto | CreateSupportTicketCommand
+  ): Promise<boolean> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -207,15 +198,17 @@ export class ServiceManagementFacade {
           subject: payload.subject,
           description: payload.description,
           priority: payload.priority,
-          status: payload.status ?? 'OPEN',
+          status: 'status' in payload ? payload.status ?? 'OPEN' : 'OPEN',
           createdAt: new Date().toISOString().slice(0, 10),
         })
       );
 
       await this.loadSupportTickets();
+      return true;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('serviceManagement.createSupportError');
+      return false;
     } finally {
       this.loadingSignal.set(false);
     }
