@@ -19,4 +19,8 @@ export class AuthApiService {
   signIn(resource: SignInResource): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.authUrl}/sign-in`, resource);
   }
+
+  signUp(resource: SignUpResource): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.authUrl}/sign-up`, resource);
+  }
 }
