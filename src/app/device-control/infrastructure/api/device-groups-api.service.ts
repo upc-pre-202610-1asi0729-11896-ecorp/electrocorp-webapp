@@ -21,4 +21,14 @@ export class DeviceGroupsApiService {
   create(resource: DeviceGroupResource): Observable<DeviceGroupResponse> {
     return this.http.post<DeviceGroupResponse>(this.resourcePath, resource);
   }
+
+  patch(
+    groupId: number,
+    resource: Partial<DeviceGroupResource>
+  ): Observable<DeviceGroupResponse> {
+    return this.http.patch<DeviceGroupResponse>(
+      `${this.resourcePath}/${groupId}`,
+      resource
+    );
+  }
 }
