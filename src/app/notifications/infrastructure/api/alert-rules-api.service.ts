@@ -21,4 +21,11 @@ export class AlertRulesApiService {
   create(resource: AlertRuleResource): Observable<AlertRuleResponse> {
     return this.http.post<AlertRuleResponse>(this.resourcePath, resource);
   }
+
+  toggle(ruleId: number): Observable<AlertRuleResponse> {
+    return this.http.patch<AlertRuleResponse>(
+      `${this.resourcePath}/${ruleId}/toggle`,
+      {}
+    );
+  }
 }
