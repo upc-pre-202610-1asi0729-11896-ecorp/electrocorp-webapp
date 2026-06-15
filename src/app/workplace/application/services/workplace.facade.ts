@@ -6,6 +6,7 @@ import { AuthSessionService } from '../../../shared/application/services/auth-se
 import { CreateLocationCommand } from '../commands/create-location.command';
 import { UpdateLocationCommand } from '../commands/update-location.command';
 import { CreateRoomCommand } from '../commands/create-room.command';
+import { UpdateRoomCommand } from '../commands/update-room.command';
 import { AssignDeviceDto } from '../dtos/assign-device.dto';
 
 import { Location } from '../../domain/model/location.entity';
@@ -193,6 +194,28 @@ export class WorkplaceFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('workplace.createRoomError');
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async updateRoom(payload: UpdateRoomCommand): Promise<void> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      await firstValueFrom(
+        this.roomsApi.update(payload.roomId, {
+          locationId: payload.locationId,
+          name: payload.name,
+          floor: Number(payload.floor),
+        })
+      );
+
+      await this.loadRooms();
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('workplace.updateRoomError');
     } finally {
       this.loadingSignal.set(false);
     }
