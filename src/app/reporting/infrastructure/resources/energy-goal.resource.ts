@@ -1,12 +1,17 @@
 import { BaseResource } from '../../../shared/infrastructure/resources/base.resource';
-import { EnergyGoalStatus } from '../../domain/model/energy-goal.entity';
+import { EnergyGoalScopeType, EnergyGoalStatus } from '../../domain/model/energy-goal.entity';
 
 export interface EnergyGoalResource extends BaseResource {
-  userId: number;
+  userId?: number;
   title: string;
-  targetWatts: number;
-  currentWatts: number;
-  startDate: string;
-  endDate: string;
+  targetKilowattHours: number;
+  currentKilowattHours: number;
+  deadline: string;
   status: EnergyGoalStatus;
+  createdAt?: string;
+  scopeType?: EnergyGoalScopeType;
+  scopeId?: number | null;
+  scopeName?: string | null;
+  activeFrom?: string | null;
+  activeTo?: string | null;
 }
