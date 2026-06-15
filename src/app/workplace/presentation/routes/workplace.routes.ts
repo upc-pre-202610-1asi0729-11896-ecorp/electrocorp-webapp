@@ -13,6 +13,15 @@ export const WORKPLACE_ROUTES: Routes = [
       ),
   },
   {
+    path: 'spaces/rooms',
+    canActivate: [activeSubscriptionGuard],
+    data: { title: 'Habitaciones' },
+    loadComponent: () =>
+      import('../pages/rooms/rooms-page.component').then(
+        (m) => m.RoomsPageComponent
+      ),
+  },
+  {
     path: 'workplace',
     redirectTo: 'spaces/sites',
     pathMatch: 'full',
@@ -20,6 +29,11 @@ export const WORKPLACE_ROUTES: Routes = [
   {
     path: 'workplace/locations',
     redirectTo: 'spaces/sites',
+    pathMatch: 'full',
+  },
+  {
+    path: 'workplace/rooms',
+    redirectTo: 'spaces/rooms',
     pathMatch: 'full',
   },
 ];
