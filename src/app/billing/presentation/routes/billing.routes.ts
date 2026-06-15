@@ -9,4 +9,12 @@ export const BILLING_ROUTES: Routes = [
         (m) => m.PlansPageComponent
       ),
   },
+  {
+    path: 'billing/history',
+    data: { title: 'Billing History' },
+    loadComponent: () =>
+      import('../pages/billing-history/billing-history-page.component').then(
+        (m) => m.BillingHistoryPageComponent
+      ),
+  },
 ];
