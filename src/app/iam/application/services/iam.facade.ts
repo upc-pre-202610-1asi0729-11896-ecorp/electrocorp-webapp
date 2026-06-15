@@ -6,10 +6,12 @@ import { AuthSessionService } from '../../../shared/application/services/auth-se
 import { RecoverPasswordCommand } from '../commands/recover-password.command';
 import { SignInCommand } from '../commands/sign-in.command';
 import { SignUpCommand } from '../commands/sign-up.command';
+import { UpdateProfileCommand } from '../commands/update-profile.command';
 import { User } from '../../domain/model/user.entity';
 import { AccessProfile } from '../../domain/model/access-profile.entity';
 import { AuthApiService } from '../../infrastructure/api/auth-api.service';
 import { IamApiService } from '../../infrastructure/api/iam-api.service';
+import { UsersApiService } from '../../infrastructure/api/users-api.service';
 import { UserAssembler } from '../../infrastructure/assemblers/user.assembler';
 import { AccessProfileAssembler } from '../../infrastructure/assemblers/access-profile.assembler';
 
@@ -34,6 +36,7 @@ export class IamFacade {
   constructor(
     private readonly authApi: AuthApiService,
     private readonly iamApi: IamApiService,
+    private readonly usersApi: UsersApiService,
     private readonly authSession: AuthSessionService,
     private readonly router: Router
   ) {}
@@ -159,6 +162,58 @@ export class IamFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('auth.recoverPasswordError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async updateProfile(payload: UpdateProfileCommand): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const currentUser = this.currentUserSignal();
+
+      if (!currentUser) {
+        this.errorSignal.set('auth.signInError');
+        return false;
+      }
+
+      const fullName = payload.fullName.trim();
+      const email = payload.email.trim().toLowerCase();
+
+      if (!fullName) {
+        this.errorSignal.set('auth.fullNameRequired');
+        return false;
+      }
+
+      if (!this.isValidEmail(email)) {
+        this.errorSignal.set('auth.invalidEmail');
+        return false;
+      }
+
+      const response = await firstValueFrom(
+        this.usersApi.updateCurrentProfile({
+          fullName,
+          email,
+          status: currentUser.status,
+        })
+      );
+
+      const updatedUser = this.userAssembler.toEntity(response);
+      this.currentUserSignal.set(updatedUser);
+
+      this.authSession.startSession({
+        id: updatedUser.id,
+        email: updatedUser.email,
+        fullName: updatedUser.fullName,
+      });
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('auth.profileUpdateError');
       return false;
     } finally {
       this.loadingSignal.set(false);
