@@ -1,15 +1,16 @@
 import { Component, Input } from '@angular/core';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-metrics-cards',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslateModule],
   templateUrl: './metrics-cards.component.html',
-  styleUrl: './metrics-cards.component.scss',
+  styleUrls: ['./metrics-cards.component.scss'],
 })
 export class MetricsCardsComponent {
-  @Input({ required: true }) totalWatts = 0;
-  @Input({ required: true }) averageWatts = 0;
-  @Input({ required: true }) highestReading = 0;
+  @Input() totalWatts = 0;
+  @Input() averageWatts = 0;
+  @Input() highestWatts = 0;
+  @Input() highReadings = 0;
 }
