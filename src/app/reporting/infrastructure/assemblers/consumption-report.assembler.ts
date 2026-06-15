@@ -12,24 +12,32 @@ export class ConsumptionReportAssembler extends BaseAssembler<
     return new ConsumptionReport({
       id: response.id,
       userId: response.userId,
+      title: response.title,
+      period: response.period,
       startDate: response.startDate,
       endDate: response.endDate,
       totalWatts: response.totalWatts,
       averageWatts: response.averageWatts,
+      highestWatts: response.highestWatts,
       highestReading: response.highestReading,
       recommendation: response.recommendation,
+      generatedAt: response.generatedAt,
     });
   }
 
   override toResource(entity: ConsumptionReport): ConsumptionReportResource {
     return {
       userId: entity.userId,
+      title: entity.title,
+      period: entity.period,
       startDate: entity.startDate,
       endDate: entity.endDate,
       totalWatts: entity.totalWatts,
       averageWatts: entity.averageWatts,
+      highestWatts: entity.highestWatts,
       highestReading: entity.highestReading,
       recommendation: entity.recommendation,
+      generatedAt: entity.generatedAt,
     };
   }
 }
