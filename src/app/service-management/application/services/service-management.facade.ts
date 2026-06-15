@@ -3,6 +3,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 
+import { CreateMaintenanceTicketCommand } from '../commands/create-maintenance-ticket.command';
 import { CreateSupportTicketCommand } from '../commands/create-support-ticket.command';
 import { UpdateSupportTicketStatusCommand } from '../commands/update-support-ticket-status.command';
 import { CreateSupportTicketDto } from '../dtos/create-support-ticket.dto';
@@ -42,24 +43,9 @@ export class ServiceManagementFacade {
   });
 
   readonly maintenanceTicketsSorted = computed(() => {
-    const statusWeight: Record<string, number> = {
-      IN_PROGRESS: 1,
-      PENDING: 2,
-      COMPLETED: 3,
-      CANCELLED: 4,
-    };
-
-    return [...this.maintenanceTicketsSignal()].sort((a, b) => {
-      const byStatus = statusWeight[a.status] - statusWeight[b.status];
-
-      if (byStatus !== 0) {
-        return byStatus;
-      }
-
-      return (
-        new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
-      );
-    });
+    return this.ticketPriorityService.sortMaintenanceTickets(
+      this.maintenanceTicketsSignal()
+    );
   });
 
   readonly totalSupportTickets = computed(() => {
@@ -103,7 +89,7 @@ export class ServiceManagementFacade {
 
   readonly pendingMaintenanceTickets = computed(() => {
     return this.maintenanceTicketsSignal().filter(
-      (ticket) => ticket.status === 'PENDING' || ticket.status === 'IN_PROGRESS'
+      (ticket) => ticket.isPending
     ).length;
   });
 
@@ -125,7 +111,7 @@ export class ServiceManagementFacade {
 
   readonly nextMaintenanceTicket = computed(() => {
     const pendingTickets = this.maintenanceTicketsSorted().filter(
-      (ticket) => ticket.status === 'PENDING' || ticket.status === 'IN_PROGRESS'
+      (ticket) => ticket.isPending
     );
 
     return pendingTickets.length ? pendingTickets[0] : null;
@@ -255,26 +241,53 @@ export class ServiceManagementFacade {
   }
 
   async createMaintenanceTicket(
-    payload: CreateMaintenanceTicketDto
-  ): Promise<void> {
+    payload: CreateMaintenanceTicketDto | CreateMaintenanceTicketCommand
+  ): Promise<boolean> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
     try {
-      await firstValueFrom(
-        this.maintenanceTicketsApi.create({
-          deviceId: payload.deviceId,
-          title: payload.title,
-          description: payload.description,
-          scheduledAt: payload.scheduledAt,
-          status: payload.status ?? 'PENDING',
-        })
-      );
+      const userId = this.getCurrentUserId();
+      const today = new Date().toISOString().slice(0, 10);
+
+      if (this.isCreateMaintenanceTicketCommand(payload)) {
+        await firstValueFrom(
+          this.maintenanceTicketsApi.create({
+            userId,
+            deviceId: payload.deviceId,
+            deviceName: payload.deviceName,
+            type: payload.type,
+            title: `${payload.type} - ${payload.deviceName}`,
+            description: payload.description,
+            scheduledAt: payload.scheduledDate,
+            scheduledDate: payload.scheduledDate,
+            status: 'SCHEDULED',
+            createdAt: today,
+          })
+        );
+      } else {
+        await firstValueFrom(
+          this.maintenanceTicketsApi.create({
+            userId,
+            deviceId: payload.deviceId,
+            deviceName: payload.title,
+            type: 'INSPECTION',
+            title: payload.title,
+            description: payload.description,
+            scheduledAt: payload.scheduledAt,
+            scheduledDate: payload.scheduledAt,
+            status: payload.status ?? 'PENDING',
+            createdAt: today,
+          })
+        );
+      }
 
       await this.loadMaintenanceTickets();
+      return true;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('serviceManagement.createMaintenanceError');
+      return false;
     } finally {
       this.loadingSignal.set(false);
     }
@@ -292,5 +305,11 @@ export class ServiceManagementFacade {
     }
 
     return userId;
+  }
+
+  private isCreateMaintenanceTicketCommand(
+    payload: CreateMaintenanceTicketDto | CreateMaintenanceTicketCommand
+  ): payload is CreateMaintenanceTicketCommand {
+    return 'deviceName' in payload && 'scheduledDate' in payload;
   }
 }
