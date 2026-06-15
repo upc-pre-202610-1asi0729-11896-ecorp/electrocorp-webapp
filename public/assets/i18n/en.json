@@ -181,7 +181,7 @@
     "subscribeError": "Could not process the subscription.",
     "cancelError": "Could not cancel the subscription.",
     "alreadySubscribed": "You are already subscribed to this plan.",
-    "paymentEyebrow": "Simulated payment",
+    "paymentEyebrow": "Payment confirmation",
     "paymentTitle": "Confirm payment method",
     "selectedPlan": "Selected plan",
     "amountToPay": "Amount to pay",
@@ -195,6 +195,23 @@
     "invalidCvv": "The CVV is not valid.",
     "invalidHolderName": "Enter the cardholder name.",
     "lastPayment": "Last payment",
+    "recommended": "RECOMMENDED",
+    "choosePlan": "Choose plan",
+    "activePlanBadge": "Active plan",
+    "summaryStarterLabel": "Small homes",
+    "summaryStarterText": "Ideal to start with basic monitoring and simple alerts.",
+    "summaryProfessionalLabel": "Recommended",
+    "summaryProfessionalText": "The best option for advanced homes and small businesses.",
+    "summaryEnterpriseLabel": "Multiple locations",
+    "summaryEnterpriseText": "Built for teams, locations and business operations.",
+    "maxDevices": "Up to {{ count }} devices",
+    "maxRoutines": "Up to {{ count }} routines",
+    "reportExportEnabled": "Report export",
+    "planUsage": {
+      "STARTER": "For small homes",
+      "PROFESSIONAL": "For advanced homes and small businesses",
+      "ENTERPRISE": "For multiple business locations"
+    },
     "planDescriptions": {
       "STARTER": "Basic energy management for small homes.",
       "PROFESSIONAL": "Advanced control for homes and small businesses.",
@@ -218,7 +235,22 @@
         "alerts": "Advanced alerts",
         "support": "Priority support"
       }
-    }
+    },
+    "historyEyebrow": "Billing history",
+    "historyTitle": "Billing history",
+    "historySubtitle": "Review your payments, invoices and current subscription status.",
+    "invoices": "Invoices",
+    "invoice": "Invoice",
+    "issuedAt": "Issued at",
+    "status": "Status",
+    "downloadInvoice": "Download invoice",
+    "emptyInvoicesTitle": "No invoices yet",
+    "emptyInvoicesContent": "Your invoices will appear here after your payments are processed.",
+    "subscribeSuccess": "Subscription activated successfully.",
+    "cancelSuccess": "Subscription cancelled successfully.",
+    "invalidExpirationDate": "The expiration date is not valid.",
+    "invoiceNotFound": "Invoice not found.",
+    "paymentDescription": "Register the payment to activate the selected plan."
   },
   "alerts": {
     "eyebrow": "Alert center",
@@ -271,7 +303,9 @@
       "security": "Security",
       "securityDescription": "Access and recovery",
       "platform": "Platform",
-      "platformDescription": "Local preferences"
+      "platformDescription": "Local preferences",
+      "billing": "Billing",
+      "billingDescription": "Plan, payments and invoices"
     },
     "common": {
       "email": "Email",
@@ -378,6 +412,60 @@
       "scope": "Scope",
       "local": "Local",
       "scopeDescription": "These settings live in the current browser and are ready to sync with user preferences."
+    },
+    "billing": {
+      "title": "Plan and payments",
+      "pageDescription": "Manage your active subscription, review registered payments and download invoices issued for your account.",
+      "subscriptionEyebrow": "Subscription",
+      "planStatusTitle": "Plan status",
+      "planStatusDescription": "Real information for the active plan, operational limits and payment activity.",
+      "perMonth": "per month",
+      "choosePlanDescription": "Choose a plan to activate the full platform.",
+      "exports": "Exports",
+      "activeExports": "Active",
+      "notIncluded": "Not included",
+      "viewPlans": "View plans",
+      "lastPayment": "Last payment",
+      "noPaymentsRegistered": "No registered payments.",
+      "payments": "Payments",
+      "registeredMovements": "Registered movements",
+      "registeredMovementsDescription": "Payments received from the real subscription flow.",
+      "paymentNumber": "Payment #{{id}}",
+      "method": "Method",
+      "noPaymentsTitle": "No payments",
+      "noPaymentsDescription": "Payments will appear when you activate or renew a plan.",
+      "issuedDocuments": "Issued documents",
+      "issuedDocumentsDescription": "Download only invoices that exist in your account.",
+      "invoiceNumber": "Invoice #{{id}}",
+      "issuedOn": "Issued on {{date}}",
+      "download": "Download",
+      "noInvoicesTitle": "No invoices",
+      "noInvoicesDescription": "When an invoice is issued for your account, it will appear here.",
+      "loadError": "Could not load billing history.",
+      "invoiceNotFound": "Invoice not found.",
+      "downloadSuccess": "Invoice downloaded successfully.",
+      "downloadError": "Could not download the invoice.",
+      "cancelPlanTitle": "Cancel plan",
+      "cancelPlanMessage": "Your active subscription will be canceled. Confirm only if you no longer want to continue with the plan.",
+      "cancelPlanConfirm": "Cancel plan",
+      "keepPlan": "Keep plan",
+      "cancelSuccess": "Plan canceled.",
+      "cancelError": "Could not cancel the plan.",
+      "unlimited": "Unlimited",
+      "noActivePlan": "No active plan",
+      "subscriptionStatuses": {
+        "active": "Active",
+        "cancelled": "Canceled",
+        "expired": "Expired"
+      },
+      "paymentStatuses": {
+        "approved": "Approved",
+        "rejected": "Rejected",
+        "pending": "Pending"
+      },
+      "invoiceIssued": "Issued",
+      "invoiceRegistered": "Registered",
+      "goToPlans": "Go to plans"
     }
   }
 }
