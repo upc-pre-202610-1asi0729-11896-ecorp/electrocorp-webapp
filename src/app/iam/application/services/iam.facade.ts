@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 import { SignInCommand } from '../commands/sign-in.command';
-import { SignUpDto } from '../dtos/sign-up.dto';
+import { SignUpCommand } from '../commands/sign-up.command';
 import { User } from '../../domain/model/user.entity';
 import { AccessProfile } from '../../domain/model/access-profile.entity';
 import { AuthApiService } from '../../infrastructure/api/auth-api.service';
@@ -67,7 +67,7 @@ export class IamFacade {
     }
   }
 
-  async signUp(payload: SignUpDto): Promise<void> {
+  async signUp(payload: SignUpCommand): Promise<void> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -96,19 +96,16 @@ export class IamFacade {
         return;
       }
 
-      const response = await this.iamApi.signUp({
+      const response = await firstValueFrom(this.authApi.signUp({
         fullName,
         email: normalizedEmail,
         password,
-      });
+      }));
 
       const user = this.userAssembler.toEntity(response.user);
-      const profiles = response.accessProfiles.map((profile) =>
-        this.accessProfileAssembler.toEntity(profile)
-      );
 
       this.currentUserSignal.set(user);
-      this.accessProfilesSignal.set(profiles);
+      this.accessProfilesSignal.set([]);
 
       this.authSession.startSession({
         id: user.id,
