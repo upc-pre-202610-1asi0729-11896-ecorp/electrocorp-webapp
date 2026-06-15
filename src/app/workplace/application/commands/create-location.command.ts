@@ -1,9 +1,7 @@
 import { LocationType } from '../../domain/model/location.entity';
 
-export interface CreateLocationDto {
+export interface CreateLocationCommand {
   name: string;
   address: string;
-  city: string;
-  country: string;
   type: LocationType;
 }
