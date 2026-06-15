@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 
 import { CreateConsumptionReportCommand } from '../commands/create-consumption-report.command';
+import { ExportReportCommand } from '../commands/export-report.command';
 import { GenerateConsumptionReportCommand } from '../commands/generate-consumption-report.command';
 import { CreateEnergyGoalDto } from '../dtos/create-energy-goal.dto';
 
@@ -336,6 +337,59 @@ export class ReportingFacade {
     }
   }
 
+  exportReport(command: ExportReportCommand): boolean {
+    this.errorSignal.set(null);
+
+    const report = this.reportsSignal().find(
+      (currentReport) => currentReport.id === command.reportId
+    );
+
+    if (!report) {
+      this.errorSignal.set('reporting.reportNotFound');
+      return false;
+    }
+
+    const rows = [
+      [
+        'Title',
+        'Period',
+        'Start Date',
+        'End Date',
+        'Total Watts',
+        'Average Watts',
+        'Highest Watts',
+        'Recommendation',
+        'Generated At',
+      ],
+      [
+        report.title,
+        report.period,
+        report.startDate,
+        report.endDate,
+        report.totalWatts,
+        report.averageWatts,
+        report.highestWatts,
+        report.recommendation,
+        report.generatedAt,
+      ],
+    ];
+
+    const csv = rows
+      .map((row) => row.map((value) => this.toCsvValue(value)).join(','))
+      .join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+
+    anchor.href = url;
+    anchor.download = `consumption-report-${report.id}.csv`;
+    anchor.click();
+
+    URL.revokeObjectURL(url);
+    return true;
+  }
+
   async createEnergyGoal(payload: CreateEnergyGoalDto): Promise<void> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
@@ -418,6 +472,16 @@ export class ReportingFacade {
     }
 
     return 'YEARLY';
+  }
+
+  private toCsvValue(value: string | number): string {
+    const rawValue = String(value);
+
+    if (!/[",\n]/.test(rawValue)) {
+      return rawValue;
+    }
+
+    return `"${rawValue.replace(/"/g, '""')}"`;
   }
 
   private getCurrentUserId(): number {
