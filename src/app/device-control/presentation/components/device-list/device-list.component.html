@@ -1,16 +1,46 @@
-@if (devices.length > 0) {
-  <section class="device-grid">
-    @for (device of devices; track device.id) {
-      <app-device-card
-        [device]="device"
-        (toggle)="toggle.emit($event)"
-        (remove)="remove.emit($event)"
-      />
-    }
-  </section>
-} @else {
-  <article class="empty-state">
-    <h3>{{ 'devices.emptyTitle' | translate }}</h3>
-    <p>{{ 'devices.emptyContent' | translate }}</p>
-  </article>
-}
+<section class="device-room-list">
+  @for (group of roomGroups; track group.roomName) {
+    <article class="device-room-section">
+      <header class="device-room-section__header">
+        <div>
+          <p>{{ 'devices.room' | translate }}</p>
+          <h2>{{ group.roomName || ('devices.noRoom' | translate) }}</h2>
+        </div>
+
+        <dl class="device-room-section__stats">
+          <div>
+            <dt>{{ 'nav.devices' | translate }}</dt>
+            <dd>{{ group.devices.length }}</dd>
+          </div>
+
+          <div>
+            <dt>{{ 'devices.active' | translate }}</dt>
+            <dd>{{ group.activeCount }}</dd>
+          </div>
+
+          <div>
+            <dt>{{ 'devices.currentWatts' | translate }}</dt>
+            <dd>{{ group.currentWatts }} W</dd>
+          </div>
+        </dl>
+      </header>
+
+      <div class="device-list">
+        @for (device of group.devices; track device.id) {
+          <div
+            class="device-card-shell"
+            [class.device-card-shell--removing]="isDeviceRemoving(device.id)"
+          >
+            <app-device-card
+              [device]="device"
+              [locationName]="locationName"
+              [removing]="isDeviceRemoving(device.id)"
+              (toggle)="toggle.emit($event)"
+              (remove)="remove.emit($event)"
+            />
+          </div>
+        }
+      </div>
+    </article>
+  }
+</section>
