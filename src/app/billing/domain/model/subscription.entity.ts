@@ -1,7 +1,7 @@
 import { BaseEntity } from '../../../shared/domain/model/base.entity';
 import { PlanCode } from './plan.entity';
 
-export type SubscriptionStatus = 'ACTIVE' | 'CANCELED';
+export type SubscriptionStatus = 'ACTIVE' | 'CANCELLED' | 'EXPIRED';
 
 export class Subscription extends BaseEntity<number> {
   private readonly _userId: number;

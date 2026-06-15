@@ -86,6 +86,7 @@ export class BillingFacade {
         this.loadPlans(),
         this.loadActiveSubscription(),
         this.loadLastPayment(),
+        this.loadInvoices(),
       ]);
     } catch (error) {
       console.error(error);
@@ -250,7 +251,7 @@ export class BillingFacade {
     }
   }
 
-  async cancelSubscription(payload: CancelSubscriptionCommand): Promise<void> {
+  async cancelSubscription(payload: CancelSubscriptionCommand): Promise<boolean> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -262,26 +263,32 @@ export class BillingFacade {
       this.activeSubscriptionSignal.set(
         this.subscriptionAssembler.toEntity(response)
       );
+      return true;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('billing.cancelError');
+      return false;
     } finally {
       this.loadingSignal.set(false);
     }
   }
 
-  async cancelCurrentSubscription(): Promise<void> {
+  async cancelCurrentSubscription(): Promise<boolean> {
     const currentSubscription = this.activeSubscriptionSignal();
 
-    if (!currentSubscription) return;
+    if (!currentSubscription) return false;
 
-    await this.cancelSubscription({
+    return this.cancelSubscription({
       subscriptionId: currentSubscription.id,
     });
   }
 
   clearError(): void {
     this.errorSignal.set(null);
+  }
+
+  clearMessages(): void {
+    this.clearError();
   }
 
   async loadInvoices(): Promise<void> {

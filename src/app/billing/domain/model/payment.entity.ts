@@ -2,7 +2,7 @@ import { BaseEntity } from '../../../shared/domain/model/base.entity';
 import { PlanCode } from './plan.entity';
 
 export type PaymentMethod = 'CARD';
-export type PaymentStatus = 'APPROVED' | 'REJECTED';
+export type PaymentStatus = 'APPROVED' | 'REJECTED' | 'PENDING';
 
 export class Payment extends BaseEntity<number> {
   private readonly _userId: number;
