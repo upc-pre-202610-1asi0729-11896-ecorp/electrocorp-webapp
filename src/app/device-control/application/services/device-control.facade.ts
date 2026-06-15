@@ -8,7 +8,7 @@ import { Device } from '../../domain/model/device.entity';
 import { Routine } from '../../domain/model/routine.entity';
 import { RoutineConflictCheckerService } from '../../domain/services/routine-conflict-checker.service';
 
-import { CreateDeviceDto } from '../dtos/create-device.dto';
+import { CreateDeviceCommand } from '../commands/create-device.command';
 import { CreateRoutineDto } from '../dtos/create-routine.dto';
 
 import { DevicesApiService } from '../../infrastructure/api/devices-api.service';
@@ -93,7 +93,11 @@ export class DeviceControlFacade {
     }
   }
 
-  async addDevice(payload: CreateDeviceDto): Promise<void> {
+  async addDevice(payload: CreateDeviceCommand): Promise<void> {
+    await this.createDevice(payload);
+  }
+
+  async createDevice(command: CreateDeviceCommand): Promise<Device | null> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -109,15 +113,20 @@ export class DeviceControlFacade {
 
       if (!canCreateDevice) {
         this.errorSignal.set('devices.planLimitReached');
-        return;
+        return null;
+      }
+
+      if (!command.name.trim()) {
+        this.errorSignal.set('devices.createError');
+        return null;
       }
 
       const response = await firstValueFrom(
         this.devicesApi.create({
-          name: payload.name,
-          room: payload.room,
-          type: payload.type,
-          powerWatts: payload.powerWatts,
+          name: command.name.trim(),
+          room: command.room?.trim() ?? '',
+          type: command.type,
+          powerWatts: Number(command.powerWatts),
         })
       );
 
@@ -127,9 +136,11 @@ export class DeviceControlFacade {
       });
 
       this.devicesSignal.set([...this.devicesSignal(), createdDevice]);
+      return createdDevice;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('devices.createError');
+      return null;
     } finally {
       this.loadingSignal.set(false);
     }
