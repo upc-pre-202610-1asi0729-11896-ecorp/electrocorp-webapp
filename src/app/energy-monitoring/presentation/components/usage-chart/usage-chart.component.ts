@@ -1,20 +1,31 @@
+import { SlicePipe } from '@angular/common';
 import { Component, Input } from '@angular/core';
-import { DatePipe } from '@angular/common';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { EnergyReading } from '../../../domain/model/energy-reading.entity';
+import { EmptyStateComponent } from '../../../../shared/presentation/components/empty-state/empty-state.component';
 
 @Component({
   selector: 'app-usage-chart',
   standalone: true,
-  imports: [DatePipe],
+  imports: [EmptyStateComponent, TranslateModule, SlicePipe],
   templateUrl: './usage-chart.component.html',
-  styleUrl: './usage-chart.component.scss',
+  styleUrls: ['./usage-chart.component.scss'],
 })
 export class UsageChartComponent {
-  @Input({ required: true }) readings: EnergyReading[] = [];
+  @Input() readings: EnergyReading[] = [];
 
-  getBarHeight(watts: number): number {
-    const max = Math.max(...this.readings.map((reading) => reading.watts), 1);
-    return Math.max(18, Math.round((watts / max) * 120));
+  get maxWatts(): number {
+    if (this.readings.length === 0) return 1;
+
+    return Math.max(...this.readings.map((reading) => reading.watts));
+  }
+
+  get chartReadings(): EnergyReading[] {
+    return [...this.readings].reverse().slice(-12);
+  }
+
+  getHeight(watts: number): number {
+    return Math.max(8, Math.round((watts / this.maxWatts) * 160));
   }
 }
