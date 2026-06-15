@@ -12,6 +12,7 @@ import { RoutineConflictCheckerService } from '../../domain/services/routine-con
 
 import { CreateDeviceCommand } from '../commands/create-device.command';
 import { CreateDeviceGroupCommand } from '../commands/create-device-group.command';
+import { UpdateDeviceGroupCommand } from '../commands/update-device-group.command';
 import { UpdateDeviceStatusCommand } from '../commands/update-device-status.command';
 import { CreateRoutineDto } from '../dtos/create-routine.dto';
 
@@ -259,6 +260,39 @@ export class DeviceControlFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('deviceGroups.createError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async updateDeviceGroup(
+    command: UpdateDeviceGroupCommand
+  ): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const response = await firstValueFrom(
+        this.deviceGroupsApi.patch(command.groupId, {
+          name: command.name.trim(),
+          description: command.description?.trim() ?? '',
+          deviceIds: command.deviceIds,
+        })
+      );
+
+      const group = this.deviceGroupAssembler.toEntity(response);
+
+      this.deviceGroupsSignal.set(
+        this.deviceGroupsSignal().map((item) =>
+          item.id === group.id ? group : item
+        )
+      );
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('deviceGroups.updateError');
       return false;
     } finally {
       this.loadingSignal.set(false);
