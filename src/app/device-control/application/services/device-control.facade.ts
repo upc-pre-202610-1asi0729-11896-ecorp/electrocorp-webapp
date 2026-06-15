@@ -12,6 +12,7 @@ import { RoutineConflictCheckerService } from '../../domain/services/routine-con
 
 import { CreateDeviceCommand } from '../commands/create-device.command';
 import { CreateDeviceGroupCommand } from '../commands/create-device-group.command';
+import { CreateRoutineCommand } from '../commands/create-routine.command';
 import { ExecuteGroupActionCommand } from '../commands/execute-group-action.command';
 import { UpdateDeviceGroupCommand } from '../commands/update-device-group.command';
 import { UpdateDeviceStatusCommand } from '../commands/update-device-status.command';
@@ -335,6 +336,17 @@ export class DeviceControlFacade {
   }
 
   async addRoutine(payload: CreateRoutineDto): Promise<void> {
+    await this.createRoutine({
+      name: payload.name,
+      deviceId: payload.deviceId,
+      targetType: 'DEVICE',
+      targetId: payload.deviceId,
+      action: payload.action,
+      time: payload.scheduledTime,
+    });
+  }
+
+  async createRoutine(command: CreateRoutineCommand): Promise<boolean> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -350,43 +362,49 @@ export class DeviceControlFacade {
 
       if (!canCreateRoutine) {
         this.errorSignal.set('routines.planLimitReached');
-        return;
+        return false;
       }
 
-      const candidateRoutine = new Routine({
-        id: Date.now(),
-        name: payload.name,
-        deviceId: payload.deviceId,
-        action: payload.action,
-        scheduledTime: payload.scheduledTime,
-        enabled: true,
-      });
-
       const hasConflict = this.routineConflictChecker.hasConflict(
-        candidateRoutine,
-        this.routinesSignal()
+        this.routinesSignal(),
+        {
+          action: command.action,
+          time: command.time,
+          targetType: command.targetType,
+          targetId: command.targetId,
+        }
       );
 
       if (hasConflict) {
         this.errorSignal.set('routines.conflictError');
-        return;
+        return false;
       }
 
       const response = await firstValueFrom(
         this.routinesApi.create({
-          name: payload.name,
-          deviceId: payload.deviceId,
-          action: payload.action,
-          scheduledTime: payload.scheduledTime,
+          name: command.name.trim(),
+          deviceId: command.deviceId ?? null,
+          groupId: command.groupId ?? null,
+          targetType: command.targetType,
+          targetId: command.targetId,
+          action: command.action,
+          time: command.time,
+          scheduledTime: command.time,
+          repeatType: command.repeatType ?? 'DAILY',
+          daysOfWeek: command.daysOfWeek ?? '',
+          intervalDays: command.intervalDays ?? 1,
+          startsOn: command.startsOn ?? null,
           enabled: true,
         })
       );
 
       const createdRoutine = this.routineAssembler.toEntity(response);
       this.routinesSignal.set([createdRoutine, ...this.routinesSignal()]);
+      return true;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('routines.createError');
+      return false;
     } finally {
       this.loadingSignal.set(false);
     }
