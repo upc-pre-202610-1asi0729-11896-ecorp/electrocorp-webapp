@@ -9,6 +9,7 @@ import { AlertRule } from '../../domain/model/alert-rule.entity';
 import { CreateAlertRuleCommand } from '../commands/create-alert-rule.command';
 import { CreateAlertCommand } from '../commands/create-alert.command';
 import { MarkAlertAsReadCommand } from '../commands/mark-alert-as-read.command';
+import { UpdateAlertRuleStatusCommand } from '../commands/update-alert-rule-status.command';
 import { CreateAlertDto } from '../dtos/create-alert.dto';
 import { AlertRulesApiService } from '../../infrastructure/api/alert-rules-api.service';
 import { AlertsApiService } from '../../infrastructure/api/alerts-api.service';
@@ -187,6 +188,35 @@ export class NotificationsFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('alertRules.createError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async updateAlertRuleStatus(
+    command: UpdateAlertRuleStatusCommand
+  ): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const response = await firstValueFrom(
+        this.alertRulesApi.toggle(command.alertRuleId)
+      );
+
+      const updatedRule = this.alertRuleAssembler.toEntity(response);
+
+      this.alertRulesSignal.set(
+        this.alertRulesSignal().map((rule) =>
+          rule.id === command.alertRuleId ? updatedRule : rule
+        )
+      );
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('alertRules.updateError');
       return false;
     } finally {
       this.loadingSignal.set(false);
