@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
+import { DeleteAccountCommand } from '../commands/delete-account.command';
 import { RecoverPasswordCommand } from '../commands/recover-password.command';
 import { SignInCommand } from '../commands/sign-in.command';
 import { SignUpCommand } from '../commands/sign-up.command';
@@ -214,6 +215,39 @@ export class IamFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('auth.profileUpdateError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async deleteAccount(payload: DeleteAccountCommand): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      if (!this.currentUserSignal()) {
+        this.errorSignal.set('auth.signInError');
+        return false;
+      }
+
+      if (payload.confirmation !== 'ELIMINAR') {
+        this.errorSignal.set('auth.deleteAccountConfirmationError');
+        return false;
+      }
+
+      await firstValueFrom(this.usersApi.deleteCurrentAccount());
+
+      this.currentUserSignal.set(null);
+      this.accessProfilesSignal.set([]);
+      this.authSession.closeSession();
+
+      await this.router.navigate(['/iam/login']);
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('auth.deleteAccountError');
       return false;
     } finally {
       this.loadingSignal.set(false);
