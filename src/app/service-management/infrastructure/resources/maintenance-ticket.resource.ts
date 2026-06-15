@@ -1,10 +1,16 @@
 import { BaseResource } from '../../../shared/infrastructure/resources/base.resource';
-import { MaintenanceTicketStatus } from '../../domain/model/maintenance-ticket.entity';
+import {
+  MaintenanceTicketStatus,
+  MaintenanceTicketType,
+} from '../../domain/model/maintenance-ticket.entity';
 
 export interface MaintenanceTicketResource extends BaseResource {
+  userId?: number;
   deviceId: number;
-  title: string;
+  deviceName: string;
+  type: MaintenanceTicketType;
   description: string;
+  scheduledDate: string;
   status: MaintenanceTicketStatus;
-  scheduledAt: string;
+  createdAt: string;
 }
