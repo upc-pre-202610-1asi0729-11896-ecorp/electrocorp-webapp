@@ -7,23 +7,20 @@ export class Subscription extends BaseEntity<number> {
   private readonly _userId: number;
   private readonly _planCode: PlanCode;
   private readonly _status: SubscriptionStatus;
-  private readonly _startedAt: string;
-  private readonly _endsAt: string | null;
+  private readonly _active: boolean;
 
   constructor(props: {
     id: number;
     userId: number;
     planCode: PlanCode;
     status: SubscriptionStatus;
-    startedAt: string;
-    endsAt: string | null;
+    active: boolean;
   }) {
     super(props.id);
     this._userId = props.userId;
     this._planCode = props.planCode;
     this._status = props.status;
-    this._startedAt = props.startedAt;
-    this._endsAt = props.endsAt;
+    this._active = props.active;
   }
 
   get userId(): number {
@@ -38,15 +35,11 @@ export class Subscription extends BaseEntity<number> {
     return this._status;
   }
 
-  get startedAt(): string {
-    return this._startedAt;
-  }
-
-  get endsAt(): string | null {
-    return this._endsAt;
+  get active(): boolean {
+    return this._active;
   }
 
   get isActive(): boolean {
-    return this._status === 'ACTIVE';
+    return this._active;
   }
 }

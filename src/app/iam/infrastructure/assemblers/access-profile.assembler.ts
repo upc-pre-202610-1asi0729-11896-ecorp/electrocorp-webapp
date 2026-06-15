@@ -1,22 +1,26 @@
 import { BaseAssembler } from '../../../shared/infrastructure/assemblers/base.assembler';
-import { BaseResource } from '../../../shared/infrastructure/resources/base.resource';
+
 import { AccessProfile } from '../../domain/model/access-profile.entity';
+import { AccessProfileResource } from '../resources/access-profile.resource';
 import { AccessProfileResponse } from '../responses/access-profile.response';
 
 export class AccessProfileAssembler extends BaseAssembler<
   AccessProfile,
-  BaseResource,
+  AccessProfileResource,
   AccessProfileResponse
 > {
   override toEntity(response: AccessProfileResponse): AccessProfile {
     return new AccessProfile({
       id: response.id,
       name: response.name,
-      permissions: response.permissions,
+      description: response.description,
     });
   }
 
-  override toResource(): BaseResource {
-    return {};
+  override toResource(entity: AccessProfile): AccessProfileResource {
+    return {
+      name: entity.name,
+      description: entity.description,
+    };
   }
 }
