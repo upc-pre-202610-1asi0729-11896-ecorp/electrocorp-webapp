@@ -3,7 +3,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 
-import { CreateLocationDto } from '../dtos/create-location.dto';
+import { CreateLocationCommand } from '../commands/create-location.command';
 import { CreateRoomDto } from '../dtos/create-room.dto';
 import { AssignDeviceDto } from '../dtos/assign-device.dto';
 
@@ -129,7 +129,7 @@ export class WorkplaceFacade {
     }
   }
 
-  async createLocation(payload: CreateLocationDto): Promise<void> {
+  async createLocation(payload: CreateLocationCommand): Promise<void> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -138,8 +138,8 @@ export class WorkplaceFacade {
         this.locationsApi.create({
           name: payload.name,
           address: payload.address,
-          city: payload.city,
-          country: payload.country,
+          city: '',
+          country: '',
           type: payload.type,
         })
       );
