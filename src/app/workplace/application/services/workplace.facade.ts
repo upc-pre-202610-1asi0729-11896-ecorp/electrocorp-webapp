@@ -7,7 +7,7 @@ import { CreateLocationCommand } from '../commands/create-location.command';
 import { UpdateLocationCommand } from '../commands/update-location.command';
 import { CreateRoomCommand } from '../commands/create-room.command';
 import { UpdateRoomCommand } from '../commands/update-room.command';
-import { AssignDeviceDto } from '../dtos/assign-device.dto';
+import { AssignDeviceCommand } from '../commands/assign-device.command';
 
 import { Location } from '../../domain/model/location.entity';
 import { Room } from '../../domain/model/room.entity';
@@ -221,7 +221,7 @@ export class WorkplaceFacade {
     }
   }
 
-  async assignDevice(payload: AssignDeviceDto): Promise<void> {
+  async assignDevice(payload: AssignDeviceCommand): Promise<void> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -229,9 +229,9 @@ export class WorkplaceFacade {
       await firstValueFrom(
         this.deviceAssignmentsApi.create({
           deviceId: payload.deviceId,
-          userId: payload.userId,
+          userId: this.getCurrentUserId(),
           locationId: payload.locationId,
-          roomId: payload.roomId,
+          roomId: payload.roomId ?? null,
           assignedAt: new Date().toISOString().slice(0, 10),
         })
       );

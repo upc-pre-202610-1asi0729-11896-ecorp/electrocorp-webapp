@@ -4,7 +4,7 @@ export class DeviceAssignment extends BaseEntity<number> {
   private readonly _deviceId: number;
   private readonly _userId: number;
   private readonly _locationId: number;
-  private readonly _roomId: number;
+  private readonly _roomId: number | null;
   private readonly _assignedAt: string;
 
   constructor(props: {
@@ -12,7 +12,7 @@ export class DeviceAssignment extends BaseEntity<number> {
     deviceId: number;
     userId: number;
     locationId: number;
-    roomId: number;
+    roomId: number | null;
     assignedAt: string;
   }) {
     super(props.id);
@@ -35,7 +35,7 @@ export class DeviceAssignment extends BaseEntity<number> {
     return this._locationId;
   }
 
-  get roomId(): number {
+  get roomId(): number | null {
     return this._roomId;
   }
 
