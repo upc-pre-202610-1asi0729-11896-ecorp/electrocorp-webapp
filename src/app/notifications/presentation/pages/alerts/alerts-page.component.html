@@ -1,79 +1,69 @@
-<section class="page">
-  <article class="page-header">
-    <div>
-      <p class="eyebrow">{{ 'alerts.eyebrow' | translate }}</p>
-      <h1>{{ 'alerts.title' | translate }}</h1>
-      <p>{{ 'alerts.subtitle' | translate }}</p>
-    </div>
+<section class="alerts-page">
+  <header class="ec-page-heading alert-hero">
+    <p class="ec-page-eyebrow">{{ 'alerts.eyebrow' | translate }}</p>
+    <h1 class="ec-page-title">{{ 'nav.inbox' | translate }}</h1>
+    <p class="ec-page-description">{{ 'alerts.inboxSubtitle' | translate }}</p>
+  </header>
 
-    <div class="metrics">
-      <article>
-        <span>{{ 'alerts.total' | translate }}</span>
-        <strong>{{ notificationsFacade.alerts().length }}</strong>
-      </article>
+  <section class="summary-grid" [attr.aria-label]="'alerts.summaryAria' | translate">
+    <article>
+      <span>{{ 'alerts.total' | translate }}</span>
+      <strong>{{ visibleAlertsCount }}</strong>
+      <small>{{ activeFilterLabel }}</small>
+    </article>
 
-      <article>
-        <span>{{ 'alerts.unreadCount' | translate }}</span>
-        <strong>{{ notificationsFacade.unreadCount() }}</strong>
-      </article>
-    </div>
-  </article>
+    <article>
+      <span>{{ 'alerts.unreadCount' | translate }}</span>
+      <strong>{{ visibleUnreadCount }}</strong>
+      <small>{{ 'alerts.summary.visibleInboxOnly' | translate }}</small>
+    </article>
 
-  <section class="content-grid">
-    <form class="form-card" (ngSubmit)="handleSubmit()">
-      <h2>{{ 'alerts.createTitle' | translate }}</h2>
-
-      <label>
-        {{ 'alerts.alertTitle' | translate }}
-        <input
-          type="text"
-          name="title"
-          [(ngModel)]="title"
-          required
-          placeholder="High consumption detected"
-        />
-      </label>
-
-      <label>
-        {{ 'alerts.message' | translate }}
-        <textarea
-          name="message"
-          [(ngModel)]="message"
-          required
-          rows="5"
-          placeholder="Coffee machine plug reached a consumption peak."
-        ></textarea>
-      </label>
-
-      <label>
-        {{ 'alerts.level' | translate }}
-        <select name="level" [(ngModel)]="level" required>
-          @for (alertLevel of alertLevels; track alertLevel) {
-            <option [value]="alertLevel">{{ alertLevel }}</option>
-          }
-        </select>
-      </label>
-
-      <button type="submit" [disabled]="notificationsFacade.loading()">
-        @if (notificationsFacade.loading()) {
-          {{ 'common.loading' | translate }}
-        } @else {
-          {{ 'alerts.create' | translate }}
-        }
-      </button>
-
-      @if (notificationsFacade.error()) {
-        <p class="error-message">
-          {{ notificationsFacade.error()! | translate }}
-        </p>
-      }
-    </form>
-
-    <section class="list-card">
-      <app-alert-list
-        [alerts]="notificationsFacade.sortedAlerts()"
-        (markAsRead)="handleMarkAsRead($event)"
-      />
-    </section>
+    <article>
+      <span>{{ 'alerts.criticalCount' | translate }}</span>
+      <strong>{{ visibleCriticalCount }}</strong>
+      <small>{{ 'alerts.summary.withoutSilenced' | translate }}</small>
+    </article>
   </section>
+
+  <section class="alerts-toolbar">
+    <div>
+      <span>{{ 'nav.inbox' | translate }}</span>
+      <h2>{{ 'alerts.toolbar.title' | translate }}</h2>
+      <p>
+        {{ 'alerts.toolbar.description' | translate }}
+      </p>
+    </div>
+
+    <div class="alert-filters">
+      <app-dropdown
+        [options]="filterOptions"
+        [value]="selectedFilter"
+        tone="info"
+        (valueChange)="selectFilter($event)"
+      />
+
+      <app-button variant="secondary" size="sm" (pressed)="refresh()">
+        {{ 'alerts.refresh' | translate }}
+      </app-button>
+    </div>
+  </section>
+
+  @if (hiddenByPreferencesCount > 0) {
+    <p class="preference-note">
+      {{ 'alerts.hiddenByPreferences' | translate: { count: hiddenByPreferencesCount } }}
+    </p>
+  }
+
+  @if (notificationsFacade.loading()) {
+    <div class="loading-wrapper">
+      <app-loading-spinner />
+    </div>
+  } @else {
+    <app-alert-list
+      [alerts]="enrichedFilteredAlerts"
+      (markAsRead)="markAsRead($event)"
+      (remove)="deleteAlert($event)"
+      (dismissForTenMinutes)="dismissAlert($event)"
+    />
+  }
 </section>
