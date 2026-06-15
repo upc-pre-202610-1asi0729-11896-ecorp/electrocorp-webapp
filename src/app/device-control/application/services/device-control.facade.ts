@@ -5,15 +5,20 @@ import { BillingFacade } from '../../../billing/application/services/billing.fac
 import { PlanPermissionService } from '../../../billing/domain/services/plan-permission.service';
 
 import { Device } from '../../domain/model/device.entity';
+import { DeviceGroup } from '../../domain/model/device-group.entity';
 import { Routine } from '../../domain/model/routine.entity';
+import { DeviceGroupPolicyService } from '../../domain/services/device-group-policy.service';
 import { RoutineConflictCheckerService } from '../../domain/services/routine-conflict-checker.service';
 
 import { CreateDeviceCommand } from '../commands/create-device.command';
+import { CreateDeviceGroupCommand } from '../commands/create-device-group.command';
 import { UpdateDeviceStatusCommand } from '../commands/update-device-status.command';
 import { CreateRoutineDto } from '../dtos/create-routine.dto';
 
+import { DeviceGroupsApiService } from '../../infrastructure/api/device-groups-api.service';
 import { DevicesApiService } from '../../infrastructure/api/devices-api.service';
 import { RoutinesApiService } from '../../infrastructure/api/routines-api.service';
+import { DeviceGroupAssembler } from '../../infrastructure/assemblers/device-group.assembler';
 import { DeviceAssembler } from '../../infrastructure/assemblers/device.assembler';
 import { RoutineAssembler } from '../../infrastructure/assemblers/routine.assembler';
 
@@ -22,14 +27,17 @@ import { RoutineAssembler } from '../../infrastructure/assemblers/routine.assemb
 })
 export class DeviceControlFacade {
   private readonly deviceAssembler = new DeviceAssembler();
+  private readonly deviceGroupAssembler = new DeviceGroupAssembler();
   private readonly routineAssembler = new RoutineAssembler();
 
   private readonly devicesSignal = signal<Device[]>([]);
+  private readonly deviceGroupsSignal = signal<DeviceGroup[]>([]);
   private readonly routinesSignal = signal<Routine[]>([]);
   private readonly loadingSignal = signal<boolean>(false);
   private readonly errorSignal = signal<string | null>(null);
 
   readonly devices = computed(() => this.devicesSignal());
+  readonly deviceGroups = computed(() => this.deviceGroupsSignal());
   readonly routines = computed(() => this.routinesSignal());
   readonly loading = computed(() => this.loadingSignal());
   readonly error = computed(() => this.errorSignal());
@@ -54,7 +62,9 @@ export class DeviceControlFacade {
 
   constructor(
     private readonly devicesApi: DevicesApiService,
+    private readonly deviceGroupsApi: DeviceGroupsApiService,
     private readonly routinesApi: RoutinesApiService,
+    private readonly deviceGroupPolicy: DeviceGroupPolicyService,
     private readonly routineConflictChecker: RoutineConflictCheckerService,
     private readonly billingFacade: BillingFacade,
     private readonly planPermissionService: PlanPermissionService
@@ -203,6 +213,55 @@ export class DeviceControlFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('devices.deleteError');
+    }
+  }
+
+  async loadDeviceGroups(): Promise<void> {
+    try {
+      const responses = await firstValueFrom(
+        this.deviceGroupsApi.findAllForCurrentUser()
+      );
+
+      this.deviceGroupsSignal.set(
+        responses.map((response) => this.deviceGroupAssembler.toEntity(response))
+      );
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('deviceGroups.loadError');
+    }
+  }
+
+  async createDeviceGroup(
+    command: CreateDeviceGroupCommand
+  ): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      if (!this.deviceGroupPolicy.canCreateGroup(command.name, command.deviceIds)) {
+        this.errorSignal.set('deviceGroups.createError');
+        return false;
+      }
+
+      const response = await firstValueFrom(
+        this.deviceGroupsApi.create({
+          name: command.name.trim(),
+          description: command.description?.trim() ?? '',
+          deviceIds: command.deviceIds,
+          createdAt: new Date().toISOString().slice(0, 10),
+        })
+      );
+
+      const group = this.deviceGroupAssembler.toEntity(response);
+
+      this.deviceGroupsSignal.set([group, ...this.deviceGroupsSignal()]);
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('deviceGroups.createError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
     }
   }
 
