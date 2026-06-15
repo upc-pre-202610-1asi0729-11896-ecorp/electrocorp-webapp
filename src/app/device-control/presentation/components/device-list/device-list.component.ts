@@ -1,23 +1,56 @@
+import { TranslateModule } from '@ngx-translate/core';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { TranslatePipe } from '@ngx-translate/core';
 
 import { Device } from '../../../domain/model/device.entity';
 import { DeviceCardComponent } from '../device-card/device-card.component';
 
+interface DeviceRoomGroup {
+  roomName: string;
+  devices: Device[];
+  activeCount: number;
+  currentWatts: number;
+}
+
 @Component({
   selector: 'app-device-list',
   standalone: true,
-  imports: [DeviceCardComponent, TranslatePipe],
+  imports: [
+    TranslateModule,DeviceCardComponent],
   templateUrl: './device-list.component.html',
-  styleUrl: './device-list.component.scss',
+  styleUrls: ['./device-list.component.scss'],
 })
 export class DeviceListComponent {
-  @Input({ required: true }) devices: Device[] = [];
+  @Input() devices: Device[] = [];
+  @Input() locationName = '';
+  @Input() removingDeviceIds = new Set<number>();
 
-  @Output() toggle = new EventEmitter<number>();
+  @Output() toggle = new EventEmitter<Device>();
   @Output() remove = new EventEmitter<number>();
 
-  trackByDeviceId(index: number, device: Device): number {
-    return device.id;
+  get roomGroups(): DeviceRoomGroup[] {
+    const groups = new Map<string, Device[]>();
+
+    for (const device of this.devices) {
+      const roomName = device.room?.trim() || '';
+      const roomDevices = groups.get(roomName) ?? [];
+      roomDevices.push(device);
+      groups.set(roomName, roomDevices);
+    }
+
+    return [...groups.entries()]
+      .map(([roomName, devices]) => ({
+        roomName,
+        devices,
+        activeCount: devices.filter((device) => device.isOn).length,
+        currentWatts: devices.reduce(
+          (total, device) => total + (device.isOn ? device.powerWatts : 0),
+          0
+        ),
+      }))
+      .sort((left, right) => left.roomName.localeCompare(right.roomName));
+  }
+
+  isDeviceRemoving(deviceId: number): boolean {
+    return this.removingDeviceIds.has(deviceId);
   }
 }
