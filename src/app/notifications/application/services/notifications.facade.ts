@@ -6,8 +6,8 @@ import { PlanPermissionService } from '../../../billing/domain/services/plan-per
 
 import { Alert } from '../../domain/model/alert.entity';
 import { CreateAlertCommand } from '../commands/create-alert.command';
+import { MarkAlertAsReadCommand } from '../commands/mark-alert-as-read.command';
 import { CreateAlertDto } from '../dtos/create-alert.dto';
-import { MarkAlertAsReadDto } from '../dtos/mark-alert-as-read.dto';
 import { AlertsApiService } from '../../infrastructure/api/alerts-api.service';
 import { AlertAssembler } from '../../infrastructure/assemblers/alert.assembler';
 import { AlertPriorityService } from '../../domain/services/alert-priority.service';
@@ -107,7 +107,7 @@ export class NotificationsFacade {
     }
   }
 
-  async markAsRead(payload: MarkAlertAsReadDto): Promise<void> {
+  async markAsRead(payload: MarkAlertAsReadCommand): Promise<boolean> {
     try {
       const response = await firstValueFrom(
         this.alertsApi.markAsRead(payload.alertId)
@@ -120,9 +120,11 @@ export class NotificationsFacade {
           alert.id === payload.alertId ? updatedAlert : alert
         )
       );
+      return true;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('alerts.markAsReadError');
+      return false;
     }
   }
 
