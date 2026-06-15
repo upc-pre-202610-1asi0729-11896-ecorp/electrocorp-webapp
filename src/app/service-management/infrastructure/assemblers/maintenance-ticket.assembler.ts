@@ -1,4 +1,5 @@
 import { BaseAssembler } from '../../../shared/infrastructure/assemblers/base.assembler';
+
 import { MaintenanceTicket } from '../../domain/model/maintenance-ticket.entity';
 import { MaintenanceTicketResource } from '../resources/maintenance-ticket.resource';
 import { MaintenanceTicketResponse } from '../responses/maintenance-ticket.response';
@@ -15,11 +16,9 @@ export class MaintenanceTicketAssembler extends BaseAssembler<
       deviceId: response.deviceId,
       deviceName: response.deviceName,
       type: response.type,
-      title: response.title,
       description: response.description,
-      status: response.status,
-      scheduledAt: response.scheduledAt,
       scheduledDate: response.scheduledDate,
+      status: response.status,
       createdAt: response.createdAt,
     });
   }
@@ -30,11 +29,9 @@ export class MaintenanceTicketAssembler extends BaseAssembler<
       deviceId: entity.deviceId,
       deviceName: entity.deviceName,
       type: entity.type,
-      title: entity.title,
       description: entity.description,
-      status: entity.status,
-      scheduledAt: entity.scheduledAt,
       scheduledDate: entity.scheduledDate,
+      status: entity.status,
       createdAt: entity.createdAt,
     };
   }
