@@ -5,10 +5,14 @@ import { BillingFacade } from '../../../billing/application/services/billing.fac
 import { PlanPermissionService } from '../../../billing/domain/services/plan-permission.service';
 
 import { Alert } from '../../domain/model/alert.entity';
+import { AlertRule } from '../../domain/model/alert-rule.entity';
+import { CreateAlertRuleCommand } from '../commands/create-alert-rule.command';
 import { CreateAlertCommand } from '../commands/create-alert.command';
 import { MarkAlertAsReadCommand } from '../commands/mark-alert-as-read.command';
 import { CreateAlertDto } from '../dtos/create-alert.dto';
+import { AlertRulesApiService } from '../../infrastructure/api/alert-rules-api.service';
 import { AlertsApiService } from '../../infrastructure/api/alerts-api.service';
+import { AlertRuleAssembler } from '../../infrastructure/assemblers/alert-rule.assembler';
 import { AlertAssembler } from '../../infrastructure/assemblers/alert.assembler';
 import { AlertPriorityService } from '../../domain/services/alert-priority.service';
 
@@ -17,12 +21,15 @@ import { AlertPriorityService } from '../../domain/services/alert-priority.servi
 })
 export class NotificationsFacade {
   private readonly alertAssembler = new AlertAssembler();
+  private readonly alertRuleAssembler = new AlertRuleAssembler();
 
   private readonly alertsSignal = signal<Alert[]>([]);
+  private readonly alertRulesSignal = signal<AlertRule[]>([]);
   private readonly loadingSignal = signal<boolean>(false);
   private readonly errorSignal = signal<string | null>(null);
 
   readonly alerts = computed(() => this.alertsSignal());
+  readonly alertRules = computed(() => this.alertRulesSignal());
   readonly loading = computed(() => this.loadingSignal());
   readonly error = computed(() => this.errorSignal());
 
@@ -32,6 +39,10 @@ export class NotificationsFacade {
 
   readonly sortedAlerts = computed(() =>
     this.alertPriorityService.sortByPriorityAndDate(this.alertsSignal())
+  );
+
+  readonly enabledAlertRules = computed(() =>
+    this.alertRulesSignal().filter((rule) => rule.isEnabled)
   );
 
   async loadAlerts(): Promise<void> {
@@ -128,8 +139,63 @@ export class NotificationsFacade {
     }
   }
 
+  async loadAlertRules(): Promise<void> {
+    try {
+      const responses = await firstValueFrom(
+        this.alertRulesApi.findAllForCurrentUser()
+      );
+
+      this.alertRulesSignal.set(
+        responses.map((response) => this.alertRuleAssembler.toEntity(response))
+      );
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('alertRules.loadError');
+    }
+  }
+
+  async createAlertRule(
+    command: CreateAlertRuleCommand
+  ): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      if (!command.name.trim() || command.threshold <= 0) {
+        this.errorSignal.set('alertRules.createError');
+        return false;
+      }
+
+      const response = await firstValueFrom(
+        this.alertRulesApi.create({
+          name: command.name.trim(),
+          metric: command.metric,
+          conditionType: command.condition,
+          threshold: Number(command.threshold),
+          level: command.level,
+          scopeType: command.scopeType ?? 'GENERAL',
+          scopeId: command.scopeId ?? null,
+          evaluatorType: command.evaluatorType ?? 'ACTIVE_POWER',
+          weight: command.weight ?? 10,
+          profileName: command.profileName ?? 'General',
+        })
+      );
+
+      const alertRule = this.alertRuleAssembler.toEntity(response);
+      this.alertRulesSignal.set([alertRule, ...this.alertRulesSignal()]);
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('alertRules.createError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
   constructor(
     private readonly alertsApi: AlertsApiService,
+    private readonly alertRulesApi: AlertRulesApiService,
     private readonly alertPriorityService: AlertPriorityService,
     private readonly billingFacade: BillingFacade,
     private readonly planPermissionService: PlanPermissionService
