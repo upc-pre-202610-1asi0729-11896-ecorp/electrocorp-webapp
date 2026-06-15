@@ -16,6 +16,7 @@ import { CreateRoutineCommand } from '../commands/create-routine.command';
 import { ExecuteGroupActionCommand } from '../commands/execute-group-action.command';
 import { UpdateDeviceGroupCommand } from '../commands/update-device-group.command';
 import { UpdateDeviceStatusCommand } from '../commands/update-device-status.command';
+import { UpdateRoutineStatusCommand } from '../commands/update-routine-status.command';
 import { CreateRoutineDto } from '../dtos/create-routine.dto';
 
 import { DeviceGroupsApiService } from '../../infrastructure/api/device-groups-api.service';
@@ -417,21 +418,35 @@ export class DeviceControlFacade {
 
     if (!currentRoutine) return;
 
+    await this.updateRoutineStatus({
+      routineId,
+      enabled: !currentRoutine.enabled,
+    });
+  }
+
+  async updateRoutineStatus(
+    command: UpdateRoutineStatusCommand
+  ): Promise<boolean> {
     try {
       const response = await firstValueFrom(
-        this.routinesApi.updateEnabled(routineId, !currentRoutine.enabled)
+        this.routinesApi.updateStatus({
+          routineId: command.routineId,
+          enabled: command.enabled,
+        })
       );
 
       const updatedRoutine = this.routineAssembler.toEntity(response);
-
       this.routinesSignal.set(
         this.routinesSignal().map((routine) =>
-          routine.id === routineId ? updatedRoutine : routine
+          routine.id === command.routineId ? updatedRoutine : routine
         )
       );
+
+      return true;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('routines.updateError');
+      return false;
     }
   }
 

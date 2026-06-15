@@ -24,9 +24,16 @@ export class RoutinesApiService extends BaseApiService<
     routineId: number,
     enabled: boolean
   ): Observable<RoutineResponse> {
+    return this.updateStatus({ routineId, enabled });
+  }
+
+  updateStatus(payload: {
+    routineId: number;
+    enabled: boolean;
+  }): Observable<RoutineResponse> {
     return this.http.patch<RoutineResponse>(
-      `${this.apiBaseUrl}/routines/${routineId}`,
-      { enabled }
+      `${this.apiBaseUrl}/routines/${payload.routineId}`,
+      { enabled: payload.enabled }
     );
   }
 }
