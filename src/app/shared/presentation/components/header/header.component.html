@@ -1,0 +1,73 @@
+<header class="topbar">
+  <a class="brand" routerLink="/home">
+    <span class="brand-icon">&#9889;</span>
+    <span>{{ 'app.name' | translate }}</span>
+  </a>
+
+  @if (showPrivateNavigation) {
+    <nav class="nav">
+      <a routerLink="/home" routerLinkActive="active">
+        {{ 'nav.home' | translate }}
+      </a>
+
+      <app-dropdown
+        variant="nav"
+        [triggerLabel]="'nav.energySection' | translate"
+        [options]="energyOptions"
+        [value]="activeValue(energyOptions)"
+      />
+
+      <app-dropdown
+        variant="nav"
+        [triggerLabel]="'nav.spaces' | translate"
+        [options]="workplaceOptions"
+        [value]="activeValue(workplaceOptions)"
+      />
+
+      <app-dropdown
+        variant="nav"
+        [triggerLabel]="'nav.operation' | translate"
+        [options]="operationOptions"
+        [value]="activeValue(operationOptions)"
+      />
+
+      <app-dropdown
+        variant="nav"
+        [triggerLabel]="'nav.alertsSection' | translate"
+        [options]="alertsOptions"
+        [value]="activeValue(alertsOptions)"
+      />
+
+      <app-dropdown
+        variant="nav"
+        [triggerLabel]="'nav.support' | translate"
+        [options]="supportOptions"
+        [value]="activeValue(supportOptions)"
+      />
+    </nav>
+  }
+
+  <div class="topbar-actions">
+    <app-language-switcher />
+
+    <button type="button" class="theme-button" (click)="toggleTheme()">
+      @if (isDarkMode) {
+        &#9728;&#65039;
+      } @else {
+        &#127769;
+      }
+    </button>
+
+    @if (showPrivateNavigation) {
+      <button
+        type="button"
+        class="user-menu-button"
+        (click)="toggleUserMenu()"
+      >
+        <span class="user-menu-avatar">
+          {{ userInitial }}
+        </span>
+      </button>
+    }
+  </div>
+</header>

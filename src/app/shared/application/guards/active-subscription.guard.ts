@@ -1,20 +1,28 @@
 import { inject } from '@angular/core';
-import {
-  CanActivateFn,
-  Router,
-} from '@angular/router';
+import { CanActivateFn, Router } from '@angular/router';
 
+import { AuthSessionService } from '../services/auth-session.service';
+import { ROUTE_PATHS } from '../../infrastructure/constants/route-paths';
 import { BillingFacade } from '../../../billing/application/services/billing.facade';
 
-export const activeSubscriptionGuard: CanActivateFn = async () => {
+export const activeSubscriptionGuard: CanActivateFn = () => {
+  const authSession = inject(AuthSessionService);
   const billingFacade = inject(BillingFacade);
   const router = inject(Router);
 
-  await billingFacade.loadBilling();
-
-  if (billingFacade.hasActiveSubscription()) {
-    return true;
+  if (!authSession.isAuthenticated()) {
+    return router.createUrlTree([ROUTE_PATHS.IAM.LOGIN]);
   }
 
-  return router.createUrlTree(['/billing/plans']);
+  return billingFacade.loadActiveSubscription().then(() => {
+    if (billingFacade.hasActiveSubscription()) {
+      return true;
+    }
+
+    return router.createUrlTree([ROUTE_PATHS.BILLING.PLANS]);
+  }).catch((error) => {
+    console.error(error);
+    billingFacade.clearActiveSubscription();
+    return router.createUrlTree([ROUTE_PATHS.BILLING.PLANS]);
+  });
 };
