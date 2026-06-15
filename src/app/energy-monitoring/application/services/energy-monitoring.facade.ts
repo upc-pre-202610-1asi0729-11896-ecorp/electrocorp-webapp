@@ -6,6 +6,7 @@ import { PlanPermissionService } from '../../../billing/domain/services/plan-per
 
 import { EnergyReading } from '../../domain/model/energy-reading.entity';
 import { EnergyRecommendationService } from '../../domain/services/energy-recommendation.service';
+import { ExportEnergyReadingsCommand } from '../commands/export-energy-readings.command';
 import { FilterReadingsDto } from '../dtos/filter-readings.dto';
 import { ReadingsApiService } from '../../infrastructure/api/readings-api.service';
 import { EnergyReadingAssembler } from '../../infrastructure/assemblers/energy-reading.assembler';
@@ -97,7 +98,11 @@ export class EnergyMonitoringFacade {
     this.readingsSignal.set(this.allReadingsSignal());
   }
 
-  async exportCsv(): Promise<void> {
+  async exportCsv(
+    command: ExportEnergyReadingsCommand = {
+      fileName: 'electrocorp-energy-readings.csv',
+    }
+  ): Promise<boolean> {
     await this.billingFacade.loadBilling();
 
     const activePlanCode = this.billingFacade.activePlanCode();
@@ -106,12 +111,19 @@ export class EnergyMonitoringFacade {
 
     if (!canExportCsv) {
       this.errorSignal.set('energy.exportNotAllowed');
-      return;
+      return false;
+    }
+
+    const readings = command.readings ?? this.readingsSignal();
+
+    if (readings.length === 0) {
+      this.errorSignal.set('energy.emptyReadings');
+      return false;
     }
 
     const rows = [
       ['Device', 'Watts', 'Date', 'Status'],
-      ...this.readingsSignal().map((reading) => [
+      ...readings.map((reading) => [
         reading.deviceName,
         String(reading.watts),
         reading.recordedAt,
@@ -128,9 +140,12 @@ export class EnergyMonitoringFacade {
     const anchor = document.createElement('a');
 
     anchor.href = url;
-    anchor.download = 'electrocorp-energy-readings.csv';
+    anchor.download = command.fileName.endsWith('.csv')
+      ? command.fileName
+      : `${command.fileName}.csv`;
     anchor.click();
 
     URL.revokeObjectURL(url);
+    return true;
   }
 }
