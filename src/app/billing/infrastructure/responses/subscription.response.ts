@@ -6,6 +6,5 @@ export interface SubscriptionResponse extends BaseResponse<number> {
   userId: number;
   planCode: PlanCode;
   status: SubscriptionStatus;
-  startedAt: string;
-  endsAt: string | null;
+  active: boolean;
 }
