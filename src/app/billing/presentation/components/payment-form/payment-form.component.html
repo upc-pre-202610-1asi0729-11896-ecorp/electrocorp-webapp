@@ -1,8 +1,8 @@
 <app-modal-form-shell
   [open]="true"
-  [eyebrow]="'about.careful.items.billing.title' | translate"
-  title="Confirmar plan"
-  description="Registra el pago para activar el plan seleccionado."
+  [eyebrow]="'billing.paymentEyebrow' | translate"
+  [title]="'billing.paymentTitle' | translate"
+  [description]="'billing.paymentDescription' | translate"
   (closed)="onCancel()"
 >
   <section class="amount-card">

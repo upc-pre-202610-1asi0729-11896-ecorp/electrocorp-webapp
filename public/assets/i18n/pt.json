@@ -181,7 +181,7 @@
     "subscribeError": "Não foi possível processar a assinatura.",
     "cancelError": "Não foi possível cancelar a assinatura.",
     "alreadySubscribed": "Você já está inscrito neste plano.",
-    "paymentEyebrow": "Pagamento simulado",
+    "paymentEyebrow": "Confirmação de pagamento",
     "paymentTitle": "Confirmar método de pagamento",
     "selectedPlan": "Plano selecionado",
     "amountToPay": "Valor a pagar",
@@ -195,6 +195,23 @@
     "invalidCvv": "O CVV não é válido.",
     "invalidHolderName": "Digite o nome do titular.",
     "lastPayment": "Último pagamento",
+    "recommended": "RECOMENDADO",
+    "choosePlan": "Escolher plano",
+    "activePlanBadge": "Plano ativo",
+    "summaryStarterLabel": "Casas pequenas",
+    "summaryStarterText": "Ideal para começar com monitoramento básico e alertas simples.",
+    "summaryProfessionalLabel": "Recomendado",
+    "summaryProfessionalText": "A melhor opção para casas avançadas e pequenos negócios.",
+    "summaryEnterpriseLabel": "Múltiplos locais",
+    "summaryEnterpriseText": "Criado para equipes, locais e operações empresariais.",
+    "maxDevices": "Até {{ count }} dispositivos",
+    "maxRoutines": "Até {{ count }} rotinas",
+    "reportExportEnabled": "Exportação de relatórios",
+    "planUsage": {
+      "STARTER": "Para casas pequenas",
+      "PROFESSIONAL": "Para casas avançadas e pequenos negócios",
+      "ENTERPRISE": "Para múltiplos locais comerciais"
+    },
     "planDescriptions": {
       "STARTER": "Gestão básica de energia para casas pequenas.",
       "PROFESSIONAL": "Controle avançado para casas e pequenos negócios.",
@@ -218,7 +235,22 @@
         "alerts": "Alertas avançados",
         "support": "Suporte prioritário"
       }
-    }
+    },
+    "historyEyebrow": "Histórico de faturamento",
+    "historyTitle": "Histórico de faturamento",
+    "historySubtitle": "Revise seus pagamentos, faturas e estado atual da assinatura.",
+    "invoices": "Faturas",
+    "invoice": "Fatura",
+    "issuedAt": "Emitida em",
+    "status": "Estado",
+    "downloadInvoice": "Baixar fatura",
+    "emptyInvoicesTitle": "Ainda não há faturas",
+    "emptyInvoicesContent": "Suas faturas aparecerão aqui depois que seus pagamentos forem processados.",
+    "subscribeSuccess": "Assinatura ativada com sucesso.",
+    "cancelSuccess": "Assinatura cancelada com sucesso.",
+    "invalidExpirationDate": "A data de vencimento não é válida.",
+    "invoiceNotFound": "Fatura não encontrada.",
+    "paymentDescription": "Registre o pagamento para ativar o plano selecionado."
   },
   "alerts": {
     "eyebrow": "Centro de alertas",
@@ -271,7 +303,9 @@
       "security": "Segurança",
       "securityDescription": "Acesso e recuperação",
       "platform": "Plataforma",
-      "platformDescription": "Preferências locais"
+      "platformDescription": "Preferências locais",
+      "billing": "Faturamento",
+      "billingDescription": "Plano, pagamentos e faturas"
     },
     "common": {
       "email": "E-mail",
@@ -378,6 +412,60 @@
       "scope": "Alcance",
       "local": "Local",
       "scopeDescription": "Estes ajustes vivem no navegador atual e ficam prontos para sincronização com preferências de usuário."
+    },
+    "billing": {
+      "title": "Plano e pagamentos",
+      "pageDescription": "Gerencie sua assinatura ativa, revise pagamentos registrados e baixe faturas emitidas para sua conta.",
+      "subscriptionEyebrow": "Assinatura",
+      "planStatusTitle": "Estado do plano",
+      "planStatusDescription": "Informações reais do plano ativo, limites operacionais e atividade de pagamento.",
+      "perMonth": "por mês",
+      "choosePlanDescription": "Escolha um plano para ativar a plataforma completa.",
+      "exports": "Exportações",
+      "activeExports": "Ativas",
+      "notIncluded": "Não incluídas",
+      "viewPlans": "Ver planos",
+      "lastPayment": "Último pagamento",
+      "noPaymentsRegistered": "Não há pagamentos registrados.",
+      "payments": "Pagamentos",
+      "registeredMovements": "Movimentos registrados",
+      "registeredMovementsDescription": "Pagamentos recebidos pelo fluxo real de assinatura.",
+      "paymentNumber": "Pagamento #{{id}}",
+      "method": "Método",
+      "noPaymentsTitle": "Não há pagamentos",
+      "noPaymentsDescription": "Os pagamentos aparecerão quando você ativar ou renovar um plano.",
+      "issuedDocuments": "Documentos emitidos",
+      "issuedDocumentsDescription": "Baixe apenas faturas existentes na sua conta.",
+      "invoiceNumber": "Fatura #{{id}}",
+      "issuedOn": "Emitida em {{date}}",
+      "download": "Baixar",
+      "noInvoicesTitle": "Não há faturas",
+      "noInvoicesDescription": "Quando houver uma fatura emitida para sua conta, ela aparecerá aqui.",
+      "loadError": "Não foi possível carregar o histórico de faturamento.",
+      "invoiceNotFound": "Fatura não encontrada.",
+      "downloadSuccess": "Fatura baixada com sucesso.",
+      "downloadError": "Não foi possível baixar a fatura.",
+      "cancelPlanTitle": "Cancelar plano",
+      "cancelPlanMessage": "Sua assinatura ativa será cancelada. Confirme somente se você não deseja continuar com o plano.",
+      "cancelPlanConfirm": "Cancelar plano",
+      "keepPlan": "Manter plano",
+      "cancelSuccess": "Plano cancelado.",
+      "cancelError": "Não foi possível cancelar o plano.",
+      "unlimited": "Ilimitado",
+      "noActivePlan": "Sem plano ativo",
+      "subscriptionStatuses": {
+        "active": "Ativo",
+        "cancelled": "Cancelado",
+        "expired": "Expirado"
+      },
+      "paymentStatuses": {
+        "approved": "Aprovado",
+        "rejected": "Rejeitado",
+        "pending": "Pendente"
+      },
+      "invoiceIssued": "Emitida",
+      "invoiceRegistered": "Registrada",
+      "goToPlans": "Ir para planos"
     }
   }
 }
