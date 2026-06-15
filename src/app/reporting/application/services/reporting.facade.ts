@@ -7,6 +7,7 @@ import { CreateConsumptionReportCommand } from '../commands/create-consumption-r
 import { CreateEnergyGoalCommand } from '../commands/create-energy-goal.command';
 import { ExportReportCommand } from '../commands/export-report.command';
 import { GenerateConsumptionReportCommand } from '../commands/generate-consumption-report.command';
+import { UpdateEnergyGoalCommand } from '../commands/update-energy-goal.command';
 import { CreateEnergyGoalDto } from '../dtos/create-energy-goal.dto';
 
 import {
@@ -479,6 +480,71 @@ export class ReportingFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('reporting.createGoalError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async updateEnergyGoal(command: UpdateEnergyGoalCommand): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const existingGoal = this.goalsSignal().find(
+        (goal) => goal.id === command.goalId
+      );
+      const targetKilowattHours = Number(command.targetKilowattHours);
+      const currentKilowattHours = Number(command.currentKilowattHours);
+
+      if (
+        !this.energyGoalPolicyService.canCreateGoal(
+          command.title,
+          targetKilowattHours,
+          command.deadline
+        )
+      ) {
+        this.errorSignal.set('reporting.invalidGoal');
+        return false;
+      }
+
+      const response = await firstValueFrom(
+        this.energyGoalsApi.updateGoal(command.goalId, {
+          userId: existingGoal?.userId ?? this.getCurrentUserId(),
+          title: command.title.trim(),
+          targetWatts: Math.round(targetKilowattHours * 1000),
+          currentWatts: Math.round(currentKilowattHours * 1000),
+          startDate:
+            existingGoal?.startDate ??
+            command.activeFrom ??
+            new Date().toISOString().slice(0, 10),
+          endDate: command.deadline,
+          targetKilowattHours,
+          currentKilowattHours,
+          deadline: command.deadline,
+          status: this.energyGoalPolicyService.resolveStatus({
+            currentKilowattHours,
+            targetKilowattHours,
+            deadline: command.deadline,
+          }),
+          createdAt: existingGoal?.createdAt,
+          scopeType: command.scopeType ?? existingGoal?.scopeType ?? 'GENERAL',
+          scopeId: command.scopeId ?? existingGoal?.scopeId ?? null,
+          scopeName: command.scopeName ?? existingGoal?.scopeName ?? null,
+          activeFrom: command.activeFrom ?? existingGoal?.activeFrom ?? null,
+          activeTo: command.activeTo ?? existingGoal?.activeTo ?? null,
+        })
+      );
+
+      const updatedGoal = this.energyGoalAssembler.toEntity(response);
+      this.goalsSignal.update((goals) =>
+        goals.map((goal) => (goal.id === updatedGoal.id ? updatedGoal : goal))
+      );
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('reporting.updateGoalError');
       return false;
     } finally {
       this.loadingSignal.set(false);
