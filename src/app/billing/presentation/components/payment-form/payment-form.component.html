@@ -1,98 +1,84 @@
-<section class="payment-backdrop">
-  <article class="payment-modal">
-    <div class="modal-header">
-      <div>
-        <p class="eyebrow">{{ 'billing.paymentEyebrow' | translate }}</p>
-        <h2>{{ 'billing.paymentTitle' | translate }}</h2>
-        <p>
-          {{ 'billing.selectedPlan' | translate }}:
-          <strong>{{ plan.name }}</strong>
-        </p>
-      </div>
+<app-modal-form-shell
+  [open]="true"
+  [eyebrow]="'about.careful.items.billing.title' | translate"
+  title="Confirmar plan"
+  description="Registra el pago para activar el plan seleccionado."
+  (closed)="onCancel()"
+>
+  <section class="amount-card">
+    <span>{{ 'billing.selectedPlan' | translate }}</span>
+    <strong>{{ plan.name }}</strong>
+    <p>S/ {{ plan.monthlyPrice }}</p>
+  </section>
 
-      <button type="button" class="close-btn" (click)="onCancel()">
-        ✕
-      </button>
-    </div>
+  <form class="payment-form ec-scrollbar" (ngSubmit)="onConfirm()">
+    <label>
+      {{ 'billing.holderName' | translate }}
+      <input
+        type="text"
+        name="holderName"
+        [(ngModel)]="holderName"
+        autocomplete="off"
+        required
+      />
+    </label>
 
-    <div class="amount-card">
-      <span>{{ 'billing.amountToPay' | translate }}</span>
-      <strong>S/ {{ plan.monthlyPrice }}</strong>
-    </div>
+    <label>
+      {{ 'billing.cardNumber' | translate }}
+      <input
+        type="text"
+        name="cardNumber"
+        [ngModel]="cardNumber"
+        (ngModelChange)="onCardNumberChange($event)"
+        autocomplete="off"
+        inputmode="numeric"
+        maxlength="19"
+        required
+      />
+    </label>
 
-    <form class="payment-form" (ngSubmit)="onConfirm()">
+    <div class="row">
       <label>
-        {{ 'billing.holderName' | translate }}
+        {{ 'billing.expirationDate' | translate }}
         <input
           type="text"
-          name="holderName"
-          [(ngModel)]="holderName"
-          required
-          autocomplete="off"
-          placeholder="Jean Franck Loa Rojas"
-        />
-      </label>
-
-      <label>
-        {{ 'billing.cardNumber' | translate }}
-        <input
-          type="text"
-          name="cardNumber"
-          [ngModel]="cardNumber"
-          (ngModelChange)="onCardNumberChange($event)"
-          required
+          name="expirationDate"
+          [ngModel]="expirationDate"
+          (ngModelChange)="onExpirationDateChange($event)"
           autocomplete="off"
           inputmode="numeric"
-          maxlength="19"
-          placeholder="4111 1111 1111 1111"
+          maxlength="5"
+          required
         />
       </label>
 
-      <div class="row">
-        <label>
-          {{ 'billing.expirationDate' | translate }}
-          <input
-            type="text"
-            name="expirationDate"
-            [ngModel]="expirationDate"
-            (ngModelChange)="onExpirationDateChange($event)"
-            required
-            autocomplete="off"
-            inputmode="numeric"
-            maxlength="5"
-            placeholder="12/28"
-          />
-        </label>
+      <label>
+        {{ 'billing.cvv' | translate }}
+        <input
+          type="password"
+          name="cvv"
+          [ngModel]="cvv"
+          (ngModelChange)="onCvvChange($event)"
+          autocomplete="off"
+          inputmode="numeric"
+          maxlength="4"
+          required
+        />
+      </label>
+    </div>
 
-        <label>
-          {{ 'billing.cvv' | translate }}
-          <input
-            type="password"
-            name="cvv"
-            [ngModel]="cvv"
-            (ngModelChange)="onCvvChange($event)"
-            required
-            autocomplete="off"
-            inputmode="numeric"
-            maxlength="3"
-            placeholder="123"
-          />
-        </label>
-      </div>
+    <div class="actions">
+      <app-button type="submit" variant="create" [disabled]="loading">
+        @if (loading) {
+          {{ 'common.loading' | translate }}
+        } @else {
+          {{ 'billing.confirmPayment' | translate }}
+        }
+      </app-button>
 
-      <div class="actions">
-        <button type="submit" class="primary-btn" [disabled]="loading">
-          @if (loading) {
-            {{ 'common.loading' | translate }}
-          } @else {
-            {{ 'billing.confirmPayment' | translate }}
-          }
-        </button>
-
-        <button type="button" class="secondary-btn" (click)="onCancel()">
-          {{ 'billing.cancelPayment' | translate }}
-        </button>
-      </div>
-    </form>
-  </article>
-</section>
+      <app-button type="button" variant="secondary" (pressed)="onCancel()">
+        {{ 'billing.cancelPayment' | translate }}
+      </app-button>
+    </div>
+  </form>
+</app-modal-form-shell>

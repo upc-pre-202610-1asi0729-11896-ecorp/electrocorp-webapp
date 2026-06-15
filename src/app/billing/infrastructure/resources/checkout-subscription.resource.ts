@@ -1,8 +1,7 @@
 import { PlanCode } from '../../domain/model/plan.entity';
 
-export interface ProcessPaymentDto {
+export interface CheckoutSubscriptionResource {
   planCode: PlanCode;
-  amount: number;
   holderName: string;
   cardNumber: string;
   expirationDate: string;
