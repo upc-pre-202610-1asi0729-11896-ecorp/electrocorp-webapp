@@ -18,12 +18,12 @@ export class InvoicesApiService extends BaseApiService<
   InvoiceResponse
 > {
   constructor(http: HttpClient) {
-    super(http, 'invoices', new InvoiceAssembler());
+    super(http, 'billing/invoices', new InvoiceAssembler());
   }
 
-  findCurrentUserInvoices(userId: number): Observable<InvoiceResponse[]> {
+  findCurrentUserInvoices(): Observable<InvoiceResponse[]> {
     return this.http.get<InvoiceResponse[]>(
-      `${this.apiBaseUrl}/invoices?userId=${userId}`
+      `${this.apiBaseUrl}/${this.endpointPath}`
     );
   }
 }
