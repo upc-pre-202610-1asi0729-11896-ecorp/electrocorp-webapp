@@ -6,7 +6,7 @@ import {
 } from '../../domain/model/alert.entity';
 
 export interface AlertResponse extends BaseResponse<number> {
-  userId?: number;
+  userId: number;
   title: string;
   message: string;
   level: AlertLevel;

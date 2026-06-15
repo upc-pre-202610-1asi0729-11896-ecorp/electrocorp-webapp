@@ -28,10 +28,6 @@ export class AlertPriorityService {
     });
   }
 
-  sortByPriorityAndDate(alerts: Alert[]): Alert[] {
-    return this.sortByPriority(alerts);
-  }
-
   getPriorityValue(level: AlertLevel): number {
     return this.priority[level];
   }
