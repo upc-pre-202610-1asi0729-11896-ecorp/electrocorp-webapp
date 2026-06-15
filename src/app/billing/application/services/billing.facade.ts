@@ -6,9 +6,9 @@ import { AuthSessionService } from '../../../shared/application/services/auth-se
 import { Plan, PlanCode } from '../../domain/model/plan.entity';
 import { Subscription } from '../../domain/model/subscription.entity';
 
+import { CancelSubscriptionCommand } from '../commands/cancel-subscription.command';
 import { PaymentFormCommand } from '../commands/payment-form.command';
 import { SubscribeDto } from '../dtos/subscribe.dto';
-import { CancelSubscriptionDto } from '../dtos/cancel-subscription.dto';
 import { ProcessPaymentDto } from '../dtos/process-payment.dto';
 
 import { PlansApiService } from '../../infrastructure/api/plans-api.service';
@@ -242,7 +242,7 @@ export class BillingFacade {
     }
   }
 
-  async cancelSubscription(payload: CancelSubscriptionDto): Promise<void> {
+  async cancelSubscription(payload: CancelSubscriptionCommand): Promise<void> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
