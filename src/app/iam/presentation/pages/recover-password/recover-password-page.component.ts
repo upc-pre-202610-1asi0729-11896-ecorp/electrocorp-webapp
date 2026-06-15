@@ -8,15 +8,14 @@ import { ToastService } from '../../../../shared/application/services/toast.serv
 import { AppButtonComponent } from '../../../../shared/presentation/components/app-button/app-button.component';
 
 @Component({
-  selector: 'app-login-page',
+  selector: 'app-recover-password-page',
   standalone: true,
   imports: [FormsModule, RouterLink, TranslateModule, AppButtonComponent],
-  templateUrl: './login-page.component.html',
-  styleUrls: ['./login-page.component.scss'],
+  templateUrl: './recover-password-page.component.html',
+  styleUrls: ['./recover-password-page.component.scss'],
 })
-export class LoginPageComponent {
+export class RecoverPasswordPageComponent {
   email = '';
-  password = '';
 
   constructor(
     readonly iamFacade: IamFacade,
@@ -24,13 +23,14 @@ export class LoginPageComponent {
   ) {}
 
   async onSubmit(): Promise<void> {
-    const success = await this.iamFacade.signIn({
+    const success = await this.iamFacade.recoverPassword({
       email: this.email,
-      password: this.password,
     });
 
-    if (!success) {
-      this.toastService.error('No se pudo iniciar sesión.');
+    if (success) {
+      this.toastService.success('Solicitud de recuperación enviada.');
+    } else {
+      this.toastService.error('No se pudo enviar la recuperación.');
     }
   }
 }
