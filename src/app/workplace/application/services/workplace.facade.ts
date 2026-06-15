@@ -5,7 +5,7 @@ import { AuthSessionService } from '../../../shared/application/services/auth-se
 
 import { CreateLocationCommand } from '../commands/create-location.command';
 import { UpdateLocationCommand } from '../commands/update-location.command';
-import { CreateRoomDto } from '../dtos/create-room.dto';
+import { CreateRoomCommand } from '../commands/create-room.command';
 import { AssignDeviceDto } from '../dtos/assign-device.dto';
 
 import { Location } from '../../domain/model/location.entity';
@@ -176,7 +176,7 @@ export class WorkplaceFacade {
     }
   }
 
-  async createRoom(payload: CreateRoomDto): Promise<void> {
+  async createRoom(payload: CreateRoomCommand): Promise<void> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -185,7 +185,7 @@ export class WorkplaceFacade {
         this.roomsApi.create({
           locationId: payload.locationId,
           name: payload.name,
-          floor: payload.floor,
+          floor: Number(payload.floor),
         })
       );
 
