@@ -1,20 +1,25 @@
 import { Routes } from '@angular/router';
 
+import { activeSubscriptionGuard } from '../../../shared/application/guards/active-subscription.guard';
+
 export const DEVICE_CONTROL_ROUTES: Routes = [
   {
-    path: 'device-control/devices',
-    data: { title: 'Devices' },
+    path: 'operation/devices',
+    canActivate: [activeSubscriptionGuard],
+    data: { title: 'Dispositivos' },
     loadComponent: () =>
       import('../pages/devices/devices-page.component').then(
         (m) => m.DevicesPageComponent
       ),
   },
   {
-    path: 'device-control/routines',
-    data: { title: 'Routines' },
-    loadComponent: () =>
-      import('../pages/routines/routines-page.component').then(
-        (m) => m.RoutinesPageComponent
-      ),
+    path: 'operation',
+    redirectTo: 'operation/devices',
+    pathMatch: 'full',
+  },
+  {
+    path: 'devices',
+    redirectTo: 'operation/devices',
+    pathMatch: 'full',
   },
 ];
