@@ -6,39 +6,35 @@ export class ConsumptionReport extends BaseEntity<number> {
   private readonly _userId: number;
   private readonly _title: string;
   private readonly _period: ConsumptionReportPeriod;
-  private readonly _startDate: string;
-  private readonly _endDate: string;
   private readonly _totalWatts: number;
   private readonly _averageWatts: number;
   private readonly _highestWatts: number;
-  private readonly _recommendation: string;
+  private readonly _startDate: string;
+  private readonly _endDate: string;
   private readonly _generatedAt: string;
 
   constructor(props: {
     id: number;
     userId: number;
-    title?: string;
-    period?: ConsumptionReportPeriod;
-    startDate: string;
-    endDate: string;
+    title: string;
+    period: ConsumptionReportPeriod;
     totalWatts: number;
     averageWatts: number;
-    highestWatts?: number;
-    highestReading?: number;
-    recommendation?: string;
-    generatedAt?: string;
+    highestWatts: number;
+    startDate: string;
+    endDate: string;
+    generatedAt: string;
   }) {
     super(props.id);
     this._userId = props.userId;
-    this._title = props.title ?? `${props.startDate} - ${props.endDate}`;
-    this._period = props.period ?? 'DAILY';
-    this._startDate = props.startDate;
-    this._endDate = props.endDate;
+    this._title = props.title;
+    this._period = props.period;
     this._totalWatts = props.totalWatts;
     this._averageWatts = props.averageWatts;
-    this._highestWatts = props.highestWatts ?? props.highestReading ?? 0;
-    this._recommendation = props.recommendation ?? '';
-    this._generatedAt = props.generatedAt ?? props.endDate;
+    this._highestWatts = props.highestWatts;
+    this._startDate = props.startDate;
+    this._endDate = props.endDate;
+    this._generatedAt = props.generatedAt;
   }
 
   get userId(): number {
@@ -53,14 +49,6 @@ export class ConsumptionReport extends BaseEntity<number> {
     return this._period;
   }
 
-  get startDate(): string {
-    return this._startDate;
-  }
-
-  get endDate(): string {
-    return this._endDate;
-  }
-
   get totalWatts(): number {
     return this._totalWatts;
   }
@@ -73,12 +61,12 @@ export class ConsumptionReport extends BaseEntity<number> {
     return this._highestWatts;
   }
 
-  get highestReading(): number {
-    return this._highestWatts;
+  get startDate(): string {
+    return this._startDate;
   }
 
-  get recommendation(): string {
-    return this._recommendation;
+  get endDate(): string {
+    return this._endDate;
   }
 
   get generatedAt(): string {

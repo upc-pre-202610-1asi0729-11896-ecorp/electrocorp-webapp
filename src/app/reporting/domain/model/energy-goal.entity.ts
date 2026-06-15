@@ -1,20 +1,13 @@
 import { BaseEntity } from '../../../shared/domain/model/base.entity';
 
-export type EnergyGoalStatus = 'IN_PROGRESS' | 'ACTIVE' | 'COMPLETED' | 'FAILED';
-export type EnergyGoalScopeType =
-  | 'GENERAL'
-  | 'WORKPLACE'
-  | 'ROOM'
-  | 'DEVICE'
-  | 'GROUP';
+export type EnergyGoalStatus = 'ACTIVE' | 'COMPLETED' | 'FAILED';
+export type EnergyGoalScopeType = 'GENERAL' | 'WORKPLACE' | 'ROOM' | 'DEVICE' | 'GROUP';
 
 export class EnergyGoal extends BaseEntity<number> {
   private readonly _userId: number;
   private readonly _title: string;
   private readonly _targetKilowattHours: number;
   private readonly _currentKilowattHours: number;
-  private readonly _startDate: string;
-  private readonly _endDate: string;
   private readonly _deadline: string;
   private readonly _status: EnergyGoalStatus;
   private readonly _createdAt: string;
@@ -28,15 +21,11 @@ export class EnergyGoal extends BaseEntity<number> {
     id: number;
     userId: number;
     title: string;
-    targetWatts?: number;
-    currentWatts?: number;
-    startDate?: string;
-    endDate?: string;
-    targetKilowattHours?: number;
-    currentKilowattHours?: number;
-    deadline?: string;
+    targetKilowattHours: number;
+    currentKilowattHours: number;
+    deadline: string;
     status: EnergyGoalStatus;
-    createdAt?: string;
+    createdAt: string;
     scopeType?: EnergyGoalScopeType | null;
     scopeId?: number | null;
     scopeName?: string | null;
@@ -44,20 +33,13 @@ export class EnergyGoal extends BaseEntity<number> {
     activeTo?: string | null;
   }) {
     super(props.id);
-    const targetKilowattHours =
-      props.targetKilowattHours ?? Number(props.targetWatts ?? 0) / 1000;
-    const currentKilowattHours =
-      props.currentKilowattHours ?? Number(props.currentWatts ?? 0) / 1000;
-
     this._userId = props.userId;
     this._title = props.title;
-    this._targetKilowattHours = targetKilowattHours;
-    this._currentKilowattHours = currentKilowattHours;
-    this._deadline = props.deadline ?? props.endDate ?? '';
-    this._createdAt = props.createdAt ?? props.startDate ?? '';
-    this._startDate = props.startDate ?? props.activeFrom ?? this._createdAt;
-    this._endDate = props.endDate ?? this._deadline;
+    this._targetKilowattHours = props.targetKilowattHours;
+    this._currentKilowattHours = props.currentKilowattHours;
+    this._deadline = props.deadline;
     this._status = props.status;
+    this._createdAt = props.createdAt;
     this._scopeType = props.scopeType ?? 'GENERAL';
     this._scopeId = props.scopeId ?? null;
     this._scopeName = props.scopeName ?? 'Toda la operacion';
@@ -79,22 +61,6 @@ export class EnergyGoal extends BaseEntity<number> {
 
   get currentKilowattHours(): number {
     return this._currentKilowattHours;
-  }
-
-  get targetWatts(): number {
-    return Math.round(this._targetKilowattHours * 1000);
-  }
-
-  get currentWatts(): number {
-    return Math.round(this._currentKilowattHours * 1000);
-  }
-
-  get startDate(): string {
-    return this._startDate;
-  }
-
-  get endDate(): string {
-    return this._endDate;
   }
 
   get deadline(): string {
@@ -138,19 +104,14 @@ export class EnergyGoal extends BaseEntity<number> {
   }
 
   get progressPercentage(): number {
-    if (this._targetKilowattHours <= 0) return 0;
+    if (this.targetKilowattHours <= 0) return 0;
 
-    const progress =
-      (this._currentKilowattHours / this._targetKilowattHours) * 100;
-    return Math.min(Math.round(progress), 100);
-  }
-
-  get remainingWatts(): number {
-    return Math.max(this.targetWatts - this.currentWatts, 0);
+    const progress = (this.currentKilowattHours / this.targetKilowattHours) * 100;
+    return Math.min(100, Number(progress.toFixed(2)));
   }
 
   get isActive(): boolean {
-    return this._status === 'ACTIVE' || this._status === 'IN_PROGRESS';
+    return this._status === 'ACTIVE';
   }
 
   get isCompleted(): boolean {
