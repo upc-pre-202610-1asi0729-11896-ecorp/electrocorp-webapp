@@ -13,6 +13,15 @@ export const DEVICE_CONTROL_ROUTES: Routes = [
       ),
   },
   {
+    path: 'operation/groups',
+    canActivate: [activeSubscriptionGuard],
+    data: { title: 'Grupos' },
+    loadComponent: () =>
+      import('../pages/device-groups/device-groups-page.component').then(
+        (m) => m.DeviceGroupsPageComponent
+      ),
+  },
+  {
     path: 'operation',
     redirectTo: 'operation/devices',
     pathMatch: 'full',
@@ -20,6 +29,11 @@ export const DEVICE_CONTROL_ROUTES: Routes = [
   {
     path: 'devices',
     redirectTo: 'operation/devices',
+    pathMatch: 'full',
+  },
+  {
+    path: 'device-groups',
+    redirectTo: 'operation/groups',
     pathMatch: 'full',
   },
 ];
