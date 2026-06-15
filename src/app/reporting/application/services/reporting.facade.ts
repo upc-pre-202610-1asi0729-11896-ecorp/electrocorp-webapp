@@ -1,29 +1,31 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
+import { BillingFacade } from '../../../billing/application/services/billing.facade';
+import { PlanPermissionService } from '../../../billing/domain/services/plan-permission.service';
+import { EnergyMonitoringFacade } from '../../../energy-monitoring/application/services/energy-monitoring.facade';
+
+import { ConsumptionReport } from '../../domain/model/consumption-report.entity';
+import { EnergyGoalPolicyService } from '../../domain/services/energy-goal-policy.service';
 
 import { CreateConsumptionReportCommand } from '../commands/create-consumption-report.command';
 import { CreateEnergyGoalCommand } from '../commands/create-energy-goal.command';
 import { ExportReportCommand } from '../commands/export-report.command';
-import { GenerateConsumptionReportCommand } from '../commands/generate-consumption-report.command';
 import { UpdateEnergyGoalCommand } from '../commands/update-energy-goal.command';
-import { CreateEnergyGoalDto } from '../dtos/create-energy-goal.dto';
-
-import {
-  ConsumptionReport,
-  ConsumptionReportPeriod,
-} from '../../domain/model/consumption-report.entity';
-import { EnergyGoal } from '../../domain/model/energy-goal.entity';
-import { EnergyGoalPolicyService } from '../../domain/services/energy-goal-policy.service';
-import { ReportSummaryService } from '../../domain/services/report-summary.service';
 
 import { ConsumptionReportsApiService } from '../../infrastructure/api/consumption-reports-api.service';
 import { EnergyGoalsApiService } from '../../infrastructure/api/energy-goals-api.service';
-import { ReadingsApiService } from '../../../energy-monitoring/infrastructure/api/readings-api.service';
 
 import { ConsumptionReportAssembler } from '../../infrastructure/assemblers/consumption-report.assembler';
 import { EnergyGoalAssembler } from '../../infrastructure/assemblers/energy-goal.assembler';
+
+import { ReportingStore } from '../stores/reporting.store';
+
+export type CreateConsumptionReportResult =
+  | 'CREATED'
+  | 'UPDATED'
+  | 'UNCHANGED'
+  | 'FAILED';
 
 @Injectable({
   providedIn: 'root',
@@ -32,602 +34,318 @@ export class ReportingFacade {
   private readonly consumptionReportAssembler = new ConsumptionReportAssembler();
   private readonly energyGoalAssembler = new EnergyGoalAssembler();
 
-  private readonly reportsSignal = signal<ConsumptionReport[]>([]);
-  private readonly goalsSignal = signal<EnergyGoal[]>([]);
-  private readonly loadingSignal = signal<boolean>(false);
-  private readonly errorSignal = signal<string | null>(null);
+  get consumptionReports() {
+    return this.store.consumptionReports;
+  }
 
-  readonly reports = computed(() => this.reportsSignal());
-  readonly goals = computed(() => this.goalsSignal());
-  readonly loading = computed(() => this.loadingSignal());
-  readonly error = computed(() => this.errorSignal());
+  get energyGoals() {
+    return this.store.energyGoals;
+  }
 
-  readonly reportsSorted = computed(() =>
-    [...this.reportsSignal()].sort((a, b) => b.totalWatts - a.totalWatts)
-  );
+  get loading() {
+    return this.store.loading;
+  }
 
-  readonly goalsSorted = computed(() => {
-    const statusPriority: Record<string, number> = {
-      ACTIVE: 1,
-      IN_PROGRESS: 1,
-      COMPLETED: 2,
-      FAILED: 3,
-    };
+  get error() {
+    return this.store.error;
+  }
 
-    return [...this.goalsSignal()].sort((a, b) => {
-      const byStatus = statusPriority[a.status] - statusPriority[b.status];
+  get activeGoals() {
+    return this.store.activeGoals;
+  }
 
-      if (byStatus !== 0) {
-        return byStatus;
-      }
+  get completedGoals() {
+    return this.store.completedGoals;
+  }
 
-      return b.progressPercentage - a.progressPercentage;
-    });
-  });
+  get failedGoals() {
+    return this.store.failedGoals;
+  }
 
-  readonly totalReports = computed(() => this.reportsSignal().length);
-  readonly totalGoals = computed(() => this.goalsSignal().length);
+  get totalReportedWatts() {
+    return this.store.totalReportedWatts;
+  }
 
-  readonly totalWattsReported = computed(() =>
-    this.reportSummaryService.calculateTotalReportedWatts(this.reportsSignal())
-  );
+  get averageReportedWatts() {
+    return this.store.averageReportedWatts;
+  }
 
-  readonly highestReading = computed(() => {
-    const reports = this.reportsSignal();
+  get highestReport() {
+    return this.store.highestReport;
+  }
 
-    if (!reports.length) {
-      return 0;
-    }
-
-    return Math.max(...reports.map((report) => report.highestReading));
-  });
-
-  readonly averageReportWatts = computed(() => {
-    const reports = this.reportsSignal();
-
-    if (!reports.length) {
-      return 0;
-    }
-
-    return Math.round(
-      this.reportSummaryService.calculateAverageReportedWatts(reports)
-    );
-  });
-
-  readonly criticalReports = computed(
-    () =>
-      this.reportsSignal().filter((report) => report.highestReading >= 1000)
-        .length
-  );
-
-  readonly strongestReport = computed(() => {
-    return this.reportSummaryService.findHighestReport(this.reportsSignal());
-  });
-
-  readonly maxReportTotalWatts = computed(() => {
-    const reports = this.reportsSignal();
-
-    if (!reports.length) {
-      return 1;
-    }
-
-    return Math.max(...reports.map((report) => report.totalWatts), 1);
-  });
-
-  readonly averageGoalProgress = computed(() => {
-    const goals = this.goalsSignal();
-
-    if (!goals.length) {
-      return 0;
-    }
-
-    const totalProgress = goals.reduce(
-      (total, goal) => total + goal.progressPercentage,
-      0
-    );
-
-    return Math.round(totalProgress / goals.length);
-  });
-
-  readonly activeGoals = computed(() =>
-    this.goalsSignal().filter((goal) => goal.isActive)
-  );
-
-  readonly completedGoals = computed(() =>
-    this.goalsSignal().filter((goal) => goal.status === 'COMPLETED')
-  );
-
-  readonly failedGoals = computed(() =>
-    this.goalsSignal().filter((goal) => goal.status === 'FAILED')
-  );
-
-  readonly averageRemainingWatts = computed(() => {
-    const goals = this.goalsSignal();
-
-    if (!goals.length) {
-      return 0;
-    }
-
-    const total = goals.reduce((sum, goal) => sum + goal.remainingWatts, 0);
-
-    return Math.round(total / goals.length);
-  });
-
-  readonly bestGoal = computed(() => {
-    const goals = this.goalsSorted();
-
-    return goals.length ? goals[0] : null;
-  });
+  get energyReadings() {
+    return this.energyMonitoringFacade.readings;
+  }
 
   constructor(
     private readonly consumptionReportsApi: ConsumptionReportsApiService,
     private readonly energyGoalsApi: EnergyGoalsApiService,
-    private readonly readingsApi: ReadingsApiService,
-    private readonly authSession: AuthSessionService,
-    private readonly reportSummaryService: ReportSummaryService,
-    private readonly energyGoalPolicyService: EnergyGoalPolicyService
+    private readonly billingFacade: BillingFacade,
+    private readonly energyMonitoringFacade: EnergyMonitoringFacade,
+    private readonly energyGoalPolicyService: EnergyGoalPolicyService,
+    private readonly planPermissionService: PlanPermissionService,
+    private readonly store: ReportingStore
   ) {}
 
-  async loadReports(): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async loadReporting(): Promise<void> {
+    this.startRequest();
 
     try {
-      const userId = this.getCurrentUserId();
-
-      const responses = await firstValueFrom(
-        this.consumptionReportsApi.findByUserId(userId)
-      );
-
-      this.reportsSignal.set(
-        responses.map((response) =>
-          this.consumptionReportAssembler.toEntity(response)
-        )
-      );
+      await Promise.all([
+        this.loadConsumptionReports(),
+        this.loadEnergyGoals(),
+        this.energyMonitoringFacade.loadReadings(),
+      ]);
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('reporting.loadReportsError');
+      this.store.setError('reporting.loadError');
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async loadGoals(): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async loadConsumptionReports(): Promise<void> {
+    const responses = await firstValueFrom(
+      this.consumptionReportsApi.findAllForCurrentUser()
+    );
 
-    try {
-      const userId = this.getCurrentUserId();
+    const reports = responses.map((response) =>
+      this.consumptionReportAssembler.toEntity(response)
+    );
 
-      const responses = await firstValueFrom(
-        this.energyGoalsApi.findByUserId(userId)
-      );
+    this.store.setConsumptionReports(reports);
+  }
 
-      this.goalsSignal.set(
-        responses.map((response) => this.energyGoalAssembler.toEntity(response))
-      );
-    } catch (error) {
-      console.error(error);
-      this.errorSignal.set('reporting.loadGoalsError');
-    } finally {
-      this.loadingSignal.set(false);
-    }
+  async loadEnergyGoals(): Promise<void> {
+    const responses = await firstValueFrom(
+      this.energyGoalsApi.findAllForCurrentUser()
+    );
+
+    const goals = responses.map((response) =>
+      this.energyGoalAssembler.toEntity(response)
+    );
+
+    this.store.setEnergyGoals(goals);
   }
 
   async createConsumptionReport(
     command: CreateConsumptionReportCommand
-  ): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  ): Promise<CreateConsumptionReportResult> {
+    this.startRequest();
 
     try {
-      const userId = this.getCurrentUserId();
-      const title = command.title.trim();
-      const today = new Date().toISOString().slice(0, 10);
-
-      if (!title || !command.startDate || !command.endDate) {
-        this.errorSignal.set('reporting.invalidReportDateRange');
-        return false;
-      }
-
-      if (command.startDate > command.endDate) {
-        this.errorSignal.set('reporting.invalidReportDateRange');
-        return false;
-      }
-
+      const existingReport = this.store
+        .consumptionReports()
+        .find(
+          (report) =>
+            report.startDate === command.startDate &&
+            report.endDate === command.endDate
+        );
       const response = await firstValueFrom(
         this.consumptionReportsApi.create({
-          userId,
-          title,
-          period: command.period,
           startDate: command.startDate,
           endDate: command.endDate,
-          totalWatts: 0,
-          averageWatts: 0,
-          highestWatts: 0,
-          highestReading: 0,
-          recommendation: this.buildRecommendation(0, 0, 0),
-          generatedAt: today,
         })
       );
 
       const report = this.consumptionReportAssembler.toEntity(response);
-      this.reportsSignal.update((reports) => [report, ...reports]);
 
-      return true;
+      this.store.upsertConsumptionReport(report);
+      this.store.setError(null);
+
+      if (!existingReport) {
+        return 'CREATED';
+      }
+
+      return this.isClosedReportCycle(command.endDate)
+        ? 'UNCHANGED'
+        : 'UPDATED';
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('reporting.createReportError');
-      return false;
+      this.store.setError('reporting.reportCreateError');
+      return 'FAILED';
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async generateConsumptionReport(
-    command: GenerateConsumptionReportCommand
-  ): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async deleteConsumptionReport(reportId: number): Promise<boolean> {
+    this.startRequest();
 
     try {
-      const userId = this.getCurrentUserId();
-      const today = new Date().toISOString().slice(0, 10);
-
-      if (!command.startDate || !command.endDate) {
-        this.errorSignal.set('reporting.invalidReportDateRange');
-        return false;
-      }
-
-      if (command.startDate > command.endDate) {
-        this.errorSignal.set('reporting.invalidReportDateRange');
-        return false;
-      }
-
-      if (command.endDate > today) {
-        this.errorSignal.set('reporting.futureReportDateError');
-        return false;
-      }
-
-      const readings = await firstValueFrom(
-        this.readingsApi.findByDateRange(command.startDate, command.endDate)
-      );
-
-      if (!readings.length) {
-        this.errorSignal.set('reporting.noReadingsForReport');
-        return false;
-      }
-
-      const totalWatts = readings.reduce(
-        (total, reading) => total + Number(reading.watts),
-        0
-      );
-
-      const averageWatts = Math.round(totalWatts / readings.length);
-
-      const highestReading = Math.max(
-        ...readings.map((reading) => Number(reading.watts))
-      );
-
-      const recommendation = this.buildRecommendation(
-        averageWatts,
-        highestReading,
-        readings.length
-      );
-
-      await firstValueFrom(
-        this.consumptionReportsApi.create({
-          userId,
-          title: `Consumption report ${command.startDate} - ${command.endDate}`,
-          period: this.resolveReportPeriod(command.startDate, command.endDate),
-          startDate: command.startDate,
-          endDate: command.endDate,
-          totalWatts,
-          averageWatts,
-          highestWatts: highestReading,
-          highestReading,
-          recommendation,
-          generatedAt: today,
-        })
-      );
-
-      await this.loadReports();
+      await firstValueFrom(this.consumptionReportsApi.delete(reportId));
+      this.store.removeConsumptionReport(reportId);
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('reporting.generateReportError');
+      this.store.setError('reporting.reportDeleteError');
       return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
   exportReport(command: ExportReportCommand): boolean {
-    this.errorSignal.set(null);
+    this.store.setError(null);
 
-    const report = this.reportsSignal().find(
-      (currentReport) => currentReport.id === command.reportId
+    const canExport = this.planPermissionService.canExportCsv(
+      this.billingFacade.activePlanCode()
     );
 
-    if (!report) {
-      this.errorSignal.set('reporting.reportNotFound');
+    if (!canExport) {
+      this.store.setError('reporting.exportNotAllowed');
       return false;
     }
 
-    const rows = [
-      [
-        'Title',
-        'Period',
-        'Start Date',
-        'End Date',
-        'Total Watts',
-        'Average Watts',
-        'Highest Watts',
-        'Recommendation',
-        'Generated At',
-      ],
-      [
-        report.title,
-        report.period,
-        report.startDate,
-        report.endDate,
-        report.totalWatts,
-        report.averageWatts,
-        report.highestWatts,
-        report.recommendation,
-        report.generatedAt,
-      ],
-    ];
+    const report: ConsumptionReport | undefined = this.store
+      .consumptionReports()
+      .find((item) => item.id === command.reportId);
 
-    const csv = rows
-      .map((row) => row.map((value) => this.toCsvValue(value)).join(','))
-      .join('\n');
+    if (!report) {
+      this.store.setError('reporting.reportNotFound');
+      return false;
+    }
 
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const content = [
+      'ELECTROCORP CONSUMPTION REPORT',
+      `Report ID: ${report.id}`,
+      `Title: ${report.title}`,
+      `Period: ${report.period}`,
+      `Start Date: ${report.startDate}`,
+      `End Date: ${report.endDate}`,
+      `Total Watts: ${report.totalWatts}`,
+      `Average Watts: ${report.averageWatts}`,
+      `Highest Watts: ${report.highestWatts}`,
+    ].join('\n');
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
 
+    const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `consumption-report-${report.id}.csv`;
+    anchor.download = `electrocorp-report-${report.id}.txt`;
     anchor.click();
 
     URL.revokeObjectURL(url);
     return true;
   }
 
-  async createEnergyGoal(
-    payload: CreateEnergyGoalDto | CreateEnergyGoalCommand
-  ): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async createEnergyGoal(command: CreateEnergyGoalCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      const userId = this.getCurrentUserId();
-      const today = new Date().toISOString().slice(0, 10);
+      const status = this.energyGoalPolicyService.resolveStatus({
+        targetKilowattHours: Number(command.targetKilowattHours),
+        currentKilowattHours: 0,
+        deadline: command.deadline,
+      });
+      const currentKilowattHours = this.energyMonitoringFacade
+        .readings()
+        .reduce((total, reading) => total + reading.kilowattHours, 0);
 
-      if (this.isCreateEnergyGoalCommand(payload)) {
-        const targetKilowattHours = Number(payload.targetKilowattHours);
-        const currentKilowattHours = 0;
-
-        if (
-          !this.energyGoalPolicyService.canCreateGoal(
-            payload.title,
-            targetKilowattHours,
-            payload.deadline
-          )
-        ) {
-          this.errorSignal.set('reporting.invalidGoal');
-          return false;
-        }
-
-        await firstValueFrom(
-          this.energyGoalsApi.create({
-            userId,
-            title: payload.title.trim(),
-            targetWatts: Math.round(targetKilowattHours * 1000),
-            currentWatts: 0,
-            startDate: payload.activeFrom ?? today,
-            endDate: payload.deadline,
-            targetKilowattHours,
-            currentKilowattHours,
-            deadline: payload.deadline,
-            status: this.energyGoalPolicyService.resolveStatus({
-              currentKilowattHours,
-              targetKilowattHours,
-              deadline: payload.deadline,
-            }),
-            createdAt: today,
-            scopeType: payload.scopeType ?? 'GENERAL',
-            scopeId: payload.scopeId ?? null,
-            scopeName: payload.scopeName ?? null,
-            activeFrom: payload.activeFrom ?? null,
-            activeTo: payload.activeTo ?? null,
-          })
-        );
-
-        await this.loadGoals();
-        return true;
-      }
-
-      const targetWatts = Number(payload.targetWatts);
-      const currentWatts = Number(payload.currentWatts);
-      const targetKilowattHours = targetWatts / 1000;
-      const currentKilowattHours = currentWatts / 1000;
-
-      await firstValueFrom(
+      const response = await firstValueFrom(
         this.energyGoalsApi.create({
-          userId,
-          title: payload.title,
-          targetWatts,
-          currentWatts,
-          startDate: payload.startDate,
-          endDate: payload.endDate,
-          targetKilowattHours,
+          title: command.title.trim(),
+          targetKilowattHours: Number(command.targetKilowattHours),
           currentKilowattHours,
-          deadline: payload.endDate,
-          status: currentWatts >= targetWatts ? 'COMPLETED' : 'IN_PROGRESS',
-          createdAt: payload.startDate,
-          scopeType: 'GENERAL',
-          scopeId: null,
-          scopeName: null,
-          activeFrom: payload.startDate,
-          activeTo: payload.endDate,
+          deadline: command.deadline,
+          status,
+          createdAt: new Date().toISOString().slice(0, 10),
+          scopeType: command.scopeType ?? 'GENERAL',
+          scopeId: command.scopeId ?? null,
+          scopeName: command.scopeName ?? null,
+          activeFrom: command.activeFrom ?? null,
+          activeTo: command.activeTo ?? null,
         })
       );
 
-      await this.loadGoals();
+      const goal = this.energyGoalAssembler.toEntity(response);
+      this.store.prependEnergyGoal(goal);
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('reporting.createGoalError');
+      this.store.setError('reporting.goalCreateError');
       return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
   async updateEnergyGoal(command: UpdateEnergyGoalCommand): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+    this.startRequest();
 
     try {
-      const existingGoal = this.goalsSignal().find(
-        (goal) => goal.id === command.goalId
-      );
-      const targetKilowattHours = Number(command.targetKilowattHours);
-      const currentKilowattHours = Number(command.currentKilowattHours);
-
-      if (
-        !this.energyGoalPolicyService.canCreateGoal(
-          command.title,
-          targetKilowattHours,
-          command.deadline
-        )
-      ) {
-        this.errorSignal.set('reporting.invalidGoal');
-        return false;
-      }
+      const status = this.energyGoalPolicyService.resolveStatus({
+        targetKilowattHours: Number(command.targetKilowattHours),
+        currentKilowattHours: Number(command.currentKilowattHours),
+        deadline: command.deadline,
+      });
 
       const response = await firstValueFrom(
-        this.energyGoalsApi.updateGoal(command.goalId, {
-          userId: existingGoal?.userId ?? this.getCurrentUserId(),
+        this.energyGoalsApi.patch(command.goalId, {
           title: command.title.trim(),
-          targetWatts: Math.round(targetKilowattHours * 1000),
-          currentWatts: Math.round(currentKilowattHours * 1000),
-          startDate:
-            existingGoal?.startDate ??
-            command.activeFrom ??
-            new Date().toISOString().slice(0, 10),
-          endDate: command.deadline,
-          targetKilowattHours,
-          currentKilowattHours,
+          targetKilowattHours: Number(command.targetKilowattHours),
+          currentKilowattHours: Number(command.currentKilowattHours),
           deadline: command.deadline,
-          status: this.energyGoalPolicyService.resolveStatus({
-            currentKilowattHours,
-            targetKilowattHours,
-            deadline: command.deadline,
-          }),
-          createdAt: existingGoal?.createdAt,
-          scopeType: command.scopeType ?? existingGoal?.scopeType ?? 'GENERAL',
-          scopeId: command.scopeId ?? existingGoal?.scopeId ?? null,
-          scopeName: command.scopeName ?? existingGoal?.scopeName ?? null,
-          activeFrom: command.activeFrom ?? existingGoal?.activeFrom ?? null,
-          activeTo: command.activeTo ?? existingGoal?.activeTo ?? null,
+          status,
+          scopeType: command.scopeType ?? 'GENERAL',
+          scopeId: command.scopeId ?? null,
+          scopeName: command.scopeName ?? null,
+          activeFrom: command.activeFrom ?? null,
+          activeTo: command.activeTo ?? null,
         })
       );
 
-      const updatedGoal = this.energyGoalAssembler.toEntity(response);
-      this.goalsSignal.update((goals) =>
-        goals.map((goal) => (goal.id === updatedGoal.id ? updatedGoal : goal))
-      );
-
+      const goal = this.energyGoalAssembler.toEntity(response);
+      this.store.updateEnergyGoal(goal);
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('reporting.updateGoalError');
+      this.store.setError('reporting.goalUpdateError');
       return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  clearError(): void {
-    this.errorSignal.set(null);
+  async deleteEnergyGoal(goalId: number): Promise<boolean> {
+    this.startRequest();
+
+    try {
+      await firstValueFrom(this.energyGoalsApi.delete(goalId));
+      this.store.removeEnergyGoal(goalId);
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('reporting.goalDeleteError');
+      return false;
+    } finally {
+      this.finishRequest();
+    }
   }
 
-  private buildRecommendation(
-    averageWatts: number,
-    highestReading: number,
-    readingsCount: number
-  ): string {
-    if (!readingsCount) {
-      return 'No energy readings were found for the selected period.';
-    }
-
-    if (highestReading >= 1000) {
-      return 'Critical consumption peak detected. Review high-power devices and adjust automation routines.';
-    }
-
-    if (averageWatts >= 500) {
-      return 'Consumption is above the expected range. Consider reducing usage during peak hours.';
-    }
-
-    if (averageWatts >= 120) {
-      return 'Consumption is moderate. Monitor frequent devices and reduce standby usage.';
-    }
-
-    return 'Consumption is stable. Keep monitoring routines and standby energy usage.';
+  clearMessages(): void {
+    this.store.clearMessages();
   }
 
-  private resolveReportPeriod(
-    startDate: string,
-    endDate: string
-  ): ConsumptionReportPeriod {
-    const start = new Date(startDate).getTime();
-    const end = new Date(endDate).getTime();
-    const days = Math.max(
-      Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1,
-      1
+  private startRequest(): void {
+    this.store.setLoading(true);
+    this.store.clearMessages();
+  }
+
+  private finishRequest(): void {
+    this.store.setLoading(false);
+  }
+
+  private isClosedReportCycle(endDate: string): boolean {
+    const today = new Date();
+    const todayAtMidnight = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
     );
 
-    if (days <= 1) {
-      return 'DAILY';
-    }
-
-    if (days <= 7) {
-      return 'WEEKLY';
-    }
-
-    if (days <= 31) {
-      return 'MONTHLY';
-    }
-
-    return 'YEARLY';
-  }
-
-  private toCsvValue(value: string | number): string {
-    const rawValue = String(value);
-
-    if (!/[",\n]/.test(rawValue)) {
-      return rawValue;
-    }
-
-    return `"${rawValue.replace(/"/g, '""')}"`;
-  }
-
-  private isCreateEnergyGoalCommand(
-    payload: CreateEnergyGoalDto | CreateEnergyGoalCommand
-  ): payload is CreateEnergyGoalCommand {
-    return 'targetKilowattHours' in payload;
-  }
-
-  private getCurrentUserId(): number {
-    const userId = this.authSession.userId();
-
-    if (!userId) {
-      throw new Error('Authenticated user id was not found.');
-    }
-
-    return userId;
+    return new Date(`${endDate}T00:00:00`).getTime() < todayAtMidnight.getTime();
   }
 }
