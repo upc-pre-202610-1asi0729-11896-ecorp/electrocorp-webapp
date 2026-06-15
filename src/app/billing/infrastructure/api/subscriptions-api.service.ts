@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import { BaseApiService } from '../../../shared/infrastructure/api/base-api.service';
 import { Subscription } from '../../domain/model/subscription.entity';
 import { SubscriptionAssembler } from '../assemblers/subscription.assembler';
+import { CheckoutSubscriptionResource } from '../resources/checkout-subscription.resource';
 import { SubscriptionResource } from '../resources/subscription.resource';
 import { SubscriptionResponse } from '../responses/subscription.response';
 
@@ -33,6 +34,13 @@ export class SubscriptionsApiService extends BaseApiService<
         status: 'CANCELED',
         endsAt: new Date().toISOString().slice(0, 10),
       }
+    );
+  }
+
+  checkout(resource: CheckoutSubscriptionResource): Observable<SubscriptionResponse> {
+    return this.http.post<SubscriptionResponse>(
+      `${this.apiBaseUrl}/subscriptions/checkout`,
+      resource
     );
   }
 }
