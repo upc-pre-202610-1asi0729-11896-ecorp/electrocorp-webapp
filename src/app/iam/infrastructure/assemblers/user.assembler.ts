@@ -1,11 +1,12 @@
 import { BaseAssembler } from '../../../shared/infrastructure/assemblers/base.assembler';
-import { BaseResource } from '../../../shared/infrastructure/resources/base.resource';
+
 import { User } from '../../domain/model/user.entity';
+import { UserResource } from '../resources/user.resource';
 import { UserResponse } from '../responses/user.response';
 
 export class UserAssembler extends BaseAssembler<
   User,
-  BaseResource,
+  UserResource,
   UserResponse
 > {
   override toEntity(response: UserResponse): User {
@@ -13,11 +14,17 @@ export class UserAssembler extends BaseAssembler<
       id: response.id,
       fullName: response.fullName,
       email: response.email,
-      status: response.status,
+      accessProfileId: response.accessProfileId,
+      accessProfileName: response.accessProfileName,
+      createdAt: response.createdAt,
     });
   }
 
-  override toResource(): BaseResource {
-    return {};
+  override toResource(entity: User): UserResource {
+    return {
+      fullName: entity.fullName,
+      email: entity.email,
+      accessProfileId: entity.accessProfileId,
+    };
   }
 }

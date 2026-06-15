@@ -1,8 +1,9 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { BaseApiService } from '../../../shared/infrastructure/api/base-api.service';
+
 import { Subscription } from '../../domain/model/subscription.entity';
 import { SubscriptionAssembler } from '../assemblers/subscription.assembler';
 import { CheckoutSubscriptionResource } from '../resources/checkout-subscription.resource';
@@ -18,28 +19,24 @@ export class SubscriptionsApiService extends BaseApiService<
   SubscriptionResponse
 > {
   constructor(http: HttpClient) {
-    super(http, 'subscriptions', new SubscriptionAssembler());
+    super(http, 'billing/subscriptions', new SubscriptionAssembler());
   }
 
-  findActiveByUserId(userId: number): Observable<SubscriptionResponse[]> {
-    return this.http.get<SubscriptionResponse[]>(
-      `${this.apiBaseUrl}/subscriptions?userId=${userId}&status=ACTIVE`
+  findCurrent(): Observable<SubscriptionResponse | null> {
+    return this.http.get<SubscriptionResponse | null>(
+      `${this.apiBaseUrl}/${this.endpointPath}/current`
     );
   }
 
-  cancelSubscription(subscriptionId: number): Observable<SubscriptionResponse> {
-    return this.http.patch<SubscriptionResponse>(
-      `${this.apiBaseUrl}/subscriptions/${subscriptionId}`,
-      {
-        status: 'CANCELLED',
-        endsAt: new Date().toISOString().slice(0, 10),
-      }
+  cancelCurrent(): Observable<void> {
+    return this.http.delete<void>(
+      `${this.apiBaseUrl}/${this.endpointPath}/current`
     );
   }
 
   checkout(resource: CheckoutSubscriptionResource): Observable<SubscriptionResponse> {
     return this.http.post<SubscriptionResponse>(
-      `${this.apiBaseUrl}/subscriptions/checkout`,
+      `${this.apiBaseUrl}/${this.endpointPath}/checkout`,
       resource
     );
   }

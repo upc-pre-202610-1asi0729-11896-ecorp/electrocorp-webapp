@@ -1,8 +1,9 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { BaseApiService } from '../../../shared/infrastructure/api/base-api.service';
+
 import { Payment } from '../../domain/model/payment.entity';
 import { PaymentAssembler } from '../assemblers/payment.assembler';
 import { PaymentResource } from '../resources/payment.resource';
@@ -17,12 +18,12 @@ export class PaymentsApiService extends BaseApiService<
   PaymentResponse
 > {
   constructor(http: HttpClient) {
-    super(http, 'payments', new PaymentAssembler());
+    super(http, 'billing/payments', new PaymentAssembler());
   }
 
-  findByUserId(userId: number): Observable<PaymentResponse[]> {
+  findCurrentUserPayments(): Observable<PaymentResponse[]> {
     return this.http.get<PaymentResponse[]>(
-      `${this.apiBaseUrl}/payments?userId=${userId}`
+      `${this.apiBaseUrl}/${this.endpointPath}`
     );
   }
 }
