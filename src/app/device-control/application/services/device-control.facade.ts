@@ -9,6 +9,7 @@ import { Routine } from '../../domain/model/routine.entity';
 import { RoutineConflictCheckerService } from '../../domain/services/routine-conflict-checker.service';
 
 import { CreateDeviceCommand } from '../commands/create-device.command';
+import { UpdateDeviceStatusCommand } from '../commands/update-device-status.command';
 import { CreateRoutineDto } from '../dtos/create-routine.dto';
 
 import { DevicesApiService } from '../../infrastructure/api/devices-api.service';
@@ -155,21 +156,36 @@ export class DeviceControlFacade {
 
     const nextStatus = currentDevice.status === 'ON' ? 'OFF' : 'ON';
 
+    await this.updateDeviceStatus({
+      deviceId,
+      status: nextStatus,
+    });
+  }
+
+  async updateDeviceStatus(
+    command: UpdateDeviceStatusCommand
+  ): Promise<boolean> {
     try {
       const response = await firstValueFrom(
-        this.devicesApi.updateStatus(deviceId, nextStatus)
+        this.devicesApi.updateStatus({
+          deviceId: command.deviceId,
+          status: command.status,
+        })
       );
 
       const updatedDevice = this.deviceAssembler.toEntity(response);
 
       this.devicesSignal.set(
         this.devicesSignal().map((device) =>
-          device.id === deviceId ? updatedDevice : device
+          device.id === command.deviceId ? updatedDevice : device
         )
       );
+
+      return true;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('devices.updateError');
+      return false;
     }
   }
 

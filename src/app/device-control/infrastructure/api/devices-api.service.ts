@@ -23,13 +23,13 @@ export class DevicesApiService extends BaseApiService<
     super(http, 'devices', new DeviceAssembler());
   }
 
-  updateStatus(
-    deviceId: number,
-    status: DeviceStatus
-  ): Observable<DeviceResponse> {
+  updateStatus(payload: {
+    deviceId: number;
+    status: DeviceStatus;
+  }): Observable<DeviceResponse> {
     return this.http.patch<DeviceResponse>(
-      `${this.apiBaseUrl}/devices/${deviceId}`,
-      { status }
+      `${this.apiBaseUrl}/devices/${payload.deviceId}`,
+      { status: payload.status }
     );
   }
 }
