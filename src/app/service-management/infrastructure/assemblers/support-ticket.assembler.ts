@@ -1,4 +1,5 @@
 import { BaseAssembler } from '../../../shared/infrastructure/assemblers/base.assembler';
+
 import { SupportTicket } from '../../domain/model/support-ticket.entity';
 import { SupportTicketResource } from '../resources/support-ticket.resource';
 import { SupportTicketResponse } from '../responses/support-ticket.response';
@@ -14,9 +15,9 @@ export class SupportTicketAssembler extends BaseAssembler<
       userId: response.userId,
       subject: response.subject,
       description: response.description,
-      status: response.status,
       priority: response.priority,
-      createdAt: response.createdAt,
+      status: response.status,
+      createdAt: this.resolveCreatedAt(response.createdAt),
     });
   }
 
@@ -25,9 +26,13 @@ export class SupportTicketAssembler extends BaseAssembler<
       userId: entity.userId,
       subject: entity.subject,
       description: entity.description,
-      status: entity.status,
       priority: entity.priority,
+      status: entity.status,
       createdAt: entity.createdAt,
     };
+  }
+
+  private resolveCreatedAt(value?: string | null): string {
+    return value?.trim() || new Date().toISOString().slice(0, 10);
   }
 }

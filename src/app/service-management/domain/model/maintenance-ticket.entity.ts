@@ -1,52 +1,38 @@
 import { BaseEntity } from '../../../shared/domain/model/base.entity';
 
-export type MaintenanceTicketStatus =
-  | 'PENDING'
-  | 'SCHEDULED'
-  | 'IN_PROGRESS'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'CANCELED';
-export type MaintenanceTicketType =
-  | 'INSPECTION'
-  | 'REPAIR'
-  | 'REPLACEMENT'
-  | 'INSTALLATION';
+export type MaintenanceTicketStatus = 'PENDING' | 'SCHEDULED' | 'COMPLETED' | 'CANCELED';
+export type MaintenanceTicketType = 'INSPECTION' | 'REPAIR' | 'REPLACEMENT' | 'INSTALLATION';
 
 export class MaintenanceTicket extends BaseEntity<number> {
   private readonly _userId: number;
   private readonly _deviceId: number;
   private readonly _deviceName: string;
   private readonly _type: MaintenanceTicketType;
-  private readonly _title: string;
   private readonly _description: string;
+  private readonly _scheduledDate: string;
   private readonly _status: MaintenanceTicketStatus;
-  private readonly _scheduledAt: string;
   private readonly _createdAt: string;
 
   constructor(props: {
     id: number;
-    userId?: number;
+    userId: number;
     deviceId: number;
-    deviceName?: string;
-    type?: MaintenanceTicketType;
-    title?: string;
+    deviceName: string;
+    type: MaintenanceTicketType;
     description: string;
+    scheduledDate: string;
     status: MaintenanceTicketStatus;
-    scheduledAt?: string;
-    scheduledDate?: string;
-    createdAt?: string;
+    createdAt: string;
   }) {
     super(props.id);
-    this._userId = props.userId ?? 0;
+    this._userId = props.userId;
     this._deviceId = props.deviceId;
-    this._deviceName = props.deviceName ?? props.title ?? `Device ${props.deviceId}`;
-    this._type = props.type ?? 'INSPECTION';
-    this._title = props.title ?? `${this._type} - ${this._deviceName}`;
+    this._deviceName = props.deviceName;
+    this._type = props.type;
     this._description = props.description;
+    this._scheduledDate = props.scheduledDate;
     this._status = props.status;
-    this._scheduledAt = props.scheduledAt ?? props.scheduledDate ?? '';
-    this._createdAt = props.createdAt ?? this._scheduledAt;
+    this._createdAt = props.createdAt;
   }
 
   get userId(): number {
@@ -65,24 +51,16 @@ export class MaintenanceTicket extends BaseEntity<number> {
     return this._type;
   }
 
-  get title(): string {
-    return this._title;
-  }
-
   get description(): string {
     return this._description;
   }
 
+  get scheduledDate(): string {
+    return this._scheduledDate;
+  }
+
   get status(): MaintenanceTicketStatus {
     return this._status;
-  }
-
-  get scheduledAt(): string {
-    return this._scheduledAt;
-  }
-
-  get scheduledDate(): string {
-    return this._scheduledAt;
   }
 
   get createdAt(): string {
@@ -90,11 +68,11 @@ export class MaintenanceTicket extends BaseEntity<number> {
   }
 
   get isPending(): boolean {
-    return (
-      this._status === 'PENDING' ||
-      this._status === 'SCHEDULED' ||
-      this._status === 'IN_PROGRESS'
-    );
+    return this._status === 'PENDING';
+  }
+
+  get isScheduled(): boolean {
+    return this._status === 'SCHEDULED';
   }
 
   get isCompleted(): boolean {
@@ -102,6 +80,6 @@ export class MaintenanceTicket extends BaseEntity<number> {
   }
 
   get isCanceled(): boolean {
-    return this._status === 'CANCELED' || this._status === 'CANCELLED';
+    return this._status === 'CANCELED';
   }
 }

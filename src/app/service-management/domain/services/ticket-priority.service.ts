@@ -14,27 +14,24 @@ import {
 })
 export class TicketPriorityService {
   private readonly supportPriorityWeight: Record<SupportTicketPriority, number> = {
-    URGENT: 1,
-    CRITICAL: 1,
-    HIGH: 2,
-    MEDIUM: 3,
-    LOW: 4,
+    URGENT: 4,
+    HIGH: 3,
+    MEDIUM: 2,
+    LOW: 1,
   };
 
-  private readonly maintenanceStatusWeight: Record<string, number> = {
-    IN_PROGRESS: 1,
-    PENDING: 2,
-    SCHEDULED: 2,
-    COMPLETED: 3,
-    CANCELLED: 4,
-    CANCELED: 4,
+  private readonly maintenanceStatusWeight: Record<MaintenanceTicketStatus, number> = {
+    PENDING: 4,
+    SCHEDULED: 3,
+    COMPLETED: 2,
+    CANCELED: 1,
   };
 
   sortSupportTickets(tickets: SupportTicket[]): SupportTicket[] {
     return [...tickets].sort((first, second) => {
       const priorityDifference =
-        this.supportPriorityWeight[first.priority] -
-        this.supportPriorityWeight[second.priority];
+        this.supportPriorityWeight[second.priority] -
+        this.supportPriorityWeight[first.priority];
 
       if (priorityDifference !== 0) return priorityDifference;
 
@@ -48,14 +45,14 @@ export class TicketPriorityService {
   sortMaintenanceTickets(tickets: MaintenanceTicket[]): MaintenanceTicket[] {
     return [...tickets].sort((first, second) => {
       const statusDifference =
-        this.getMaintenanceStatusWeight(first.status) -
-        this.getMaintenanceStatusWeight(second.status);
+        this.maintenanceStatusWeight[second.status] -
+        this.maintenanceStatusWeight[first.status];
 
       if (statusDifference !== 0) return statusDifference;
 
       return (
-        new Date(first.scheduledAt).getTime() -
-        new Date(second.scheduledAt).getTime()
+        new Date(first.scheduledDate).getTime() -
+        new Date(second.scheduledDate).getTime()
       );
     });
   }
@@ -65,6 +62,6 @@ export class TicketPriorityService {
   }
 
   getMaintenanceStatusWeight(status: MaintenanceTicketStatus): number {
-    return this.maintenanceStatusWeight[status] ?? 99;
+    return this.maintenanceStatusWeight[status];
   }
 }
