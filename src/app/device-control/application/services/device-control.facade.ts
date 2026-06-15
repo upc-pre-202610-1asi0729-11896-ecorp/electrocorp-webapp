@@ -6,12 +6,14 @@ import { PlanPermissionService } from '../../../billing/domain/services/plan-per
 
 import { Device } from '../../domain/model/device.entity';
 import { DeviceGroup } from '../../domain/model/device-group.entity';
+import { OperationMode } from '../../domain/model/operation-mode.entity';
 import { Routine } from '../../domain/model/routine.entity';
 import { DeviceGroupPolicyService } from '../../domain/services/device-group-policy.service';
 import { RoutineConflictCheckerService } from '../../domain/services/routine-conflict-checker.service';
 
 import { CreateDeviceCommand } from '../commands/create-device.command';
 import { CreateDeviceGroupCommand } from '../commands/create-device-group.command';
+import { CreateOperationModeCommand } from '../commands/create-operation-mode.command';
 import { CreateRoutineCommand } from '../commands/create-routine.command';
 import { ExecuteGroupActionCommand } from '../commands/execute-group-action.command';
 import { UpdateDeviceGroupCommand } from '../commands/update-device-group.command';
@@ -21,9 +23,11 @@ import { CreateRoutineDto } from '../dtos/create-routine.dto';
 
 import { DeviceGroupsApiService } from '../../infrastructure/api/device-groups-api.service';
 import { DevicesApiService } from '../../infrastructure/api/devices-api.service';
+import { OperationModesApiService } from '../../infrastructure/api/operation-modes-api.service';
 import { RoutinesApiService } from '../../infrastructure/api/routines-api.service';
 import { DeviceGroupAssembler } from '../../infrastructure/assemblers/device-group.assembler';
 import { DeviceAssembler } from '../../infrastructure/assemblers/device.assembler';
+import { OperationModeAssembler } from '../../infrastructure/assemblers/operation-mode.assembler';
 import { RoutineAssembler } from '../../infrastructure/assemblers/routine.assembler';
 
 @Injectable({
@@ -32,16 +36,19 @@ import { RoutineAssembler } from '../../infrastructure/assemblers/routine.assemb
 export class DeviceControlFacade {
   private readonly deviceAssembler = new DeviceAssembler();
   private readonly deviceGroupAssembler = new DeviceGroupAssembler();
+  private readonly operationModeAssembler = new OperationModeAssembler();
   private readonly routineAssembler = new RoutineAssembler();
 
   private readonly devicesSignal = signal<Device[]>([]);
   private readonly deviceGroupsSignal = signal<DeviceGroup[]>([]);
+  private readonly operationModesSignal = signal<OperationMode[]>([]);
   private readonly routinesSignal = signal<Routine[]>([]);
   private readonly loadingSignal = signal<boolean>(false);
   private readonly errorSignal = signal<string | null>(null);
 
   readonly devices = computed(() => this.devicesSignal());
   readonly deviceGroups = computed(() => this.deviceGroupsSignal());
+  readonly operationModes = computed(() => this.operationModesSignal());
   readonly routines = computed(() => this.routinesSignal());
   readonly loading = computed(() => this.loadingSignal());
   readonly error = computed(() => this.errorSignal());
@@ -67,6 +74,7 @@ export class DeviceControlFacade {
   constructor(
     private readonly devicesApi: DevicesApiService,
     private readonly deviceGroupsApi: DeviceGroupsApiService,
+    private readonly operationModesApi: OperationModesApiService,
     private readonly routinesApi: RoutinesApiService,
     private readonly deviceGroupPolicy: DeviceGroupPolicyService,
     private readonly routineConflictChecker: RoutineConflictCheckerService,
@@ -330,6 +338,51 @@ export class DeviceControlFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('deviceGroups.executeError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async loadOperationModes(): Promise<void> {
+    try {
+      const responses = await firstValueFrom(
+        this.operationModesApi.findAllForCurrentUser()
+      );
+
+      this.operationModesSignal.set(
+        responses.map((response) => this.operationModeAssembler.toEntity(response))
+      );
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('operationModes.loadError');
+    }
+  }
+
+  async createOperationMode(
+    command: CreateOperationModeCommand
+  ): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const response = await firstValueFrom(
+        this.operationModesApi.create({
+          ...command,
+          routineIds: command.routineIds ?? [],
+          routinesToEnableIds: command.routinesToEnableIds ?? [],
+          routinesToDisableIds: command.routinesToDisableIds ?? [],
+          applyRoutines: command.applyRoutines ?? false,
+        })
+      );
+
+      const mode = this.operationModeAssembler.toEntity(response);
+      this.operationModesSignal.set([mode, ...this.operationModesSignal()]);
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('operationModes.createError');
       return false;
     } finally {
       this.loadingSignal.set(false);
