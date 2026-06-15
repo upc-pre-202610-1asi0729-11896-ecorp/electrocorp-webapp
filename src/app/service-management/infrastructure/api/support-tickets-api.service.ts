@@ -25,4 +25,11 @@ export class SupportTicketsApiService extends BaseApiService<
       `${this.apiBaseUrl}/supportTickets?userId=${userId}`
     );
   }
+
+  updateStatus(
+    ticketId: number,
+    resource: Partial<SupportTicketResource>
+  ): Observable<SupportTicketResponse> {
+    return this.update(ticketId, resource);
+  }
 }

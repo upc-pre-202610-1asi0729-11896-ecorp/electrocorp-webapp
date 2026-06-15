@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 
 import { CreateSupportTicketCommand } from '../commands/create-support-ticket.command';
+import { UpdateSupportTicketStatusCommand } from '../commands/update-support-ticket-status.command';
 import { CreateSupportTicketDto } from '../dtos/create-support-ticket.dto';
 import { CreateMaintenanceTicketDto } from '../dtos/create-maintenance-ticket.dto';
 
@@ -208,6 +209,45 @@ export class ServiceManagementFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('serviceManagement.createSupportError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async updateSupportTicketStatus(
+    command: UpdateSupportTicketStatusCommand
+  ): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const existingTicket = this.supportTicketsSignal().find(
+        (ticket) => ticket.id === command.ticketId
+      );
+      const response = await firstValueFrom(
+        this.supportTicketsApi.updateStatus(command.ticketId, {
+          userId: existingTicket?.userId ?? this.getCurrentUserId(),
+          subject: existingTicket?.subject ?? '',
+          description: existingTicket?.description ?? '',
+          priority: existingTicket?.priority ?? 'MEDIUM',
+          status: command.status,
+          createdAt:
+            existingTicket?.createdAt ?? new Date().toISOString().slice(0, 10),
+        })
+      );
+
+      const updatedTicket = this.supportTicketAssembler.toEntity(response);
+      this.supportTicketsSignal.update((tickets) =>
+        tickets.map((ticket) =>
+          ticket.id === updatedTicket.id ? updatedTicket : ticket
+        )
+      );
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('serviceManagement.updateSupportStatusError');
       return false;
     } finally {
       this.loadingSignal.set(false);
