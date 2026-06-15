@@ -1,5 +1,4 @@
 import { Injectable } from '@angular/core';
-
 import { PlanCode } from '../model/plan.entity';
 
 export interface PlanPermissions {
@@ -9,6 +8,7 @@ export interface PlanPermissions {
   canExportCsv: boolean;
   canAccessEnergyHistory: boolean;
   canUseAdvancedAnalytics: boolean;
+  canUseMultipleLocations: boolean;
 }
 
 @Injectable({
@@ -23,6 +23,7 @@ export class PlanPermissionService {
       canExportCsv: false,
       canAccessEnergyHistory: false,
       canUseAdvancedAnalytics: false,
+      canUseMultipleLocations: false,
     },
     PROFESSIONAL: {
       maxDevices: 20,
@@ -31,6 +32,7 @@ export class PlanPermissionService {
       canExportCsv: true,
       canAccessEnergyHistory: true,
       canUseAdvancedAnalytics: true,
+      canUseMultipleLocations: false,
     },
     ENTERPRISE: {
       maxDevices: 100,
@@ -39,36 +41,30 @@ export class PlanPermissionService {
       canExportCsv: true,
       canAccessEnergyHistory: true,
       canUseAdvancedAnalytics: true,
+      canUseMultipleLocations: true,
     },
   };
 
   getPermissions(planCode: PlanCode | null): PlanPermissions | null {
     if (!planCode) return null;
-
     return this.permissions[planCode];
   }
 
   canCreateDevice(planCode: PlanCode | null, currentDevices: number): boolean {
     const permissions = this.getPermissions(planCode);
-
     if (!permissions) return false;
-
     return currentDevices < permissions.maxDevices;
   }
 
   canCreateRoutine(planCode: PlanCode | null, currentRoutines: number): boolean {
     const permissions = this.getPermissions(planCode);
-
     if (!permissions) return false;
-
     return currentRoutines < permissions.maxRoutines;
   }
 
   canCreateManualAlert(planCode: PlanCode | null, currentAlerts: number): boolean {
     const permissions = this.getPermissions(planCode);
-
     if (!permissions) return false;
-
     return currentAlerts < permissions.maxManualAlerts;
   }
 
@@ -82,5 +78,9 @@ export class PlanPermissionService {
 
   canUseAdvancedAnalytics(planCode: PlanCode | null): boolean {
     return this.getPermissions(planCode)?.canUseAdvancedAnalytics ?? false;
+  }
+
+  canUseMultipleLocations(planCode: PlanCode | null): boolean {
+    return this.getPermissions(planCode)?.canUseMultipleLocations ?? false;
   }
 }

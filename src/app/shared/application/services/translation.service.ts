@@ -1,52 +1,55 @@
-import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
-import { TranslateService, TranslationObject } from '@ngx-translate/core';
-import { firstValueFrom } from 'rxjs';
+// src/app/shared/application/services/translation.service.ts
+
+import { Injectable, computed, signal } from '@angular/core';
+import { TranslateService } from '@ngx-translate/core';
 
 import {
-  AppLanguage,
-  UiPreferencesService,
-} from './ui-preferences.service';
+  APP_LANGUAGES,
+  AppLanguageCode,
+  DEFAULT_LANGUAGE,
+  SUPPORTED_LANGUAGES,
+} from '../../infrastructure/constants/app-language';
+
+export type AppLanguage = AppLanguageCode;
 
 @Injectable({
   providedIn: 'root',
 })
-export class TranslationFacadeService {
-  private readonly loadedLanguages = new Set<AppLanguage>();
+export class TranslationService {
+  private readonly currentLanguageSignal = signal<AppLanguage>(DEFAULT_LANGUAGE);
 
-  constructor(
-    private readonly http: HttpClient,
-    private readonly translateService: TranslateService,
-    private readonly uiPreferencesService: UiPreferencesService
-  ) {}
+  readonly currentLanguage = computed(() => this.currentLanguageSignal());
 
-  async initialize(): Promise<void> {
-    this.translateService.addLangs(['es', 'en', 'pt']);
-    this.translateService.setFallbackLang('es');
+  readonly availableLanguages = SUPPORTED_LANGUAGES;
 
-    const savedLanguage = this.uiPreferencesService.language();
-    await this.changeLanguage(savedLanguage);
+  constructor(private readonly translate: TranslateService) {
+    this.translate.addLangs(SUPPORTED_LANGUAGES);
+    this.translate.setDefaultLang(DEFAULT_LANGUAGE);
+    this.use(DEFAULT_LANGUAGE);
   }
 
-  async changeLanguage(language: AppLanguage): Promise<void> {
-    try {
-      if (!this.loadedLanguages.has(language)) {
-        const translations = await firstValueFrom(
-          this.http.get<TranslationObject>(
-            `/assets/i18n/${language}.json?v=${Date.now()}`
-          )
-        );
+  use(language: AppLanguage): void {
+    const nextLanguage = this.availableLanguages.includes(language)
+      ? language
+      : DEFAULT_LANGUAGE;
 
-        this.translateService.setTranslation(language, translations, true);
-        this.loadedLanguages.add(language);
-      }
+    this.currentLanguageSignal.set(nextLanguage);
+    this.translate.use(nextLanguage);
+  }
 
-      this.translateService.use(language);
-      this.uiPreferencesService.setLanguage(language);
+  toggleLanguage(): void {
+    const current = this.currentLanguageSignal();
 
-      console.log(`Language changed to: ${language}`);
-    } catch (error) {
-      console.error(`Could not load language: ${language}`, error);
+    if (current === APP_LANGUAGES.ES) {
+      this.use(APP_LANGUAGES.EN);
+      return;
     }
+
+    if (current === APP_LANGUAGES.EN) {
+      this.use(APP_LANGUAGES.PT);
+      return;
+    }
+
+    this.use(APP_LANGUAGES.ES);
   }
 }

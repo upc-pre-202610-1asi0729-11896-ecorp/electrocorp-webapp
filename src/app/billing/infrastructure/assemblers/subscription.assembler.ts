@@ -1,4 +1,5 @@
 import { BaseAssembler } from '../../../shared/infrastructure/assemblers/base.assembler';
+
 import { Subscription } from '../../domain/model/subscription.entity';
 import { SubscriptionResource } from '../resources/subscription.resource';
 import { SubscriptionResponse } from '../responses/subscription.response';
@@ -14,8 +15,7 @@ export class SubscriptionAssembler extends BaseAssembler<
       userId: response.userId,
       planCode: response.planCode,
       status: response.status,
-      startedAt: response.startedAt,
-      endsAt: response.endsAt,
+      active: response.active,
     });
   }
 
@@ -23,9 +23,6 @@ export class SubscriptionAssembler extends BaseAssembler<
     return {
       userId: entity.userId,
       planCode: entity.planCode,
-      status: entity.status,
-      startedAt: entity.startedAt,
-      endsAt: entity.endsAt,
     };
   }
 }

@@ -1,10 +1,16 @@
 import { BaseResponse } from '../../../shared/infrastructure/responses/base.response';
-import { MaintenanceTicketStatus } from '../../domain/model/maintenance-ticket.entity';
+import {
+  MaintenanceTicketStatus,
+  MaintenanceTicketType,
+} from '../../domain/model/maintenance-ticket.entity';
 
 export interface MaintenanceTicketResponse extends BaseResponse<number> {
+  userId: number;
   deviceId: number;
-  title: string;
+  deviceName: string;
+  type: MaintenanceTicketType;
   description: string;
+  scheduledDate: string;
   status: MaintenanceTicketStatus;
-  scheduledAt: string;
+  createdAt: string;
 }

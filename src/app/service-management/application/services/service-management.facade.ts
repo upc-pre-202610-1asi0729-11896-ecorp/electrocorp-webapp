@@ -1,19 +1,20 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
+import { DeviceControlFacade } from '../../../device-control/application/services/device-control.facade';
 
-import { CreateSupportTicketDto } from '../dtos/create-support-ticket.dto';
-import { CreateMaintenanceTicketDto } from '../dtos/create-maintenance-ticket.dto';
+import { CreateMaintenanceTicketCommand } from '../commands/create-maintenance-ticket.command';
+import { CreateSupportTicketCommand } from '../commands/create-support-ticket.command';
+import { UpdateMaintenanceTicketStatusCommand } from '../commands/update-maintenance-ticket-status.command';
+import { UpdateSupportTicketStatusCommand } from '../commands/update-support-ticket-status.command';
 
-import { SupportTicket } from '../../domain/model/support-ticket.entity';
-import { MaintenanceTicket } from '../../domain/model/maintenance-ticket.entity';
-
-import { SupportTicketsApiService } from '../../infrastructure/api/support-tickets-api.service';
 import { MaintenanceTicketsApiService } from '../../infrastructure/api/maintenance-tickets-api.service';
+import { SupportTicketsApiService } from '../../infrastructure/api/support-tickets-api.service';
 
-import { SupportTicketAssembler } from '../../infrastructure/assemblers/support-ticket.assembler';
 import { MaintenanceTicketAssembler } from '../../infrastructure/assemblers/maintenance-ticket.assembler';
+import { SupportTicketAssembler } from '../../infrastructure/assemblers/support-ticket.assembler';
+
+import { ServiceManagementStore } from '../stores/service-management.store';
 
 @Injectable({
   providedIn: 'root',
@@ -22,242 +23,271 @@ export class ServiceManagementFacade {
   private readonly supportTicketAssembler = new SupportTicketAssembler();
   private readonly maintenanceTicketAssembler = new MaintenanceTicketAssembler();
 
-  private readonly supportTicketsSignal = signal<SupportTicket[]>([]);
-  private readonly maintenanceTicketsSignal = signal<MaintenanceTicket[]>([]);
-  private readonly loadingSignal = signal<boolean>(false);
-  private readonly errorSignal = signal<string | null>(null);
+  get supportTickets() {
+    return this.store.supportTickets;
+  }
 
-  readonly supportTickets = computed(() => this.supportTicketsSignal());
-  readonly maintenanceTickets = computed(() => this.maintenanceTicketsSignal());
-  readonly loading = computed(() => this.loadingSignal());
-  readonly error = computed(() => this.errorSignal());
+  get maintenanceTickets() {
+    return this.store.maintenanceTickets;
+  }
 
-  readonly supportTicketsSorted = computed(() => {
-    const priorityWeight: Record<string, number> = {
-      CRITICAL: 1,
-      HIGH: 2,
-      MEDIUM: 3,
-      LOW: 4,
-    };
+  get sortedSupportTickets() {
+    return this.store.sortedSupportTickets;
+  }
 
-    return [...this.supportTicketsSignal()].sort((a, b) => {
-      const byPriority =
-        priorityWeight[a.priority] - priorityWeight[b.priority];
+  get sortedMaintenanceTickets() {
+    return this.store.sortedMaintenanceTickets;
+  }
 
-      if (byPriority !== 0) {
-        return byPriority;
-      }
+  get loading() {
+    return this.store.loading;
+  }
 
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
-  });
+  get error() {
+    return this.store.error;
+  }
 
-  readonly maintenanceTicketsSorted = computed(() => {
-    const statusWeight: Record<string, number> = {
-      IN_PROGRESS: 1,
-      PENDING: 2,
-      COMPLETED: 3,
-      CANCELLED: 4,
-    };
+  get openSupportTickets() {
+    return this.store.openSupportTickets;
+  }
 
-    return [...this.maintenanceTicketsSignal()].sort((a, b) => {
-      const byStatus = statusWeight[a.status] - statusWeight[b.status];
+  get urgentSupportTickets() {
+    return this.store.urgentSupportTickets;
+  }
 
-      if (byStatus !== 0) {
-        return byStatus;
-      }
+  get pendingMaintenanceTickets() {
+    return this.store.pendingMaintenanceTickets;
+  }
 
-      return (
-        new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
-      );
-    });
-  });
+  get scheduledMaintenanceTickets() {
+    return this.store.scheduledMaintenanceTickets;
+  }
 
-  readonly totalSupportTickets = computed(() => {
-    return this.supportTicketsSignal().length;
-  });
-
-  readonly openSupportTickets = computed(() => {
-    return this.supportTicketsSignal().filter((ticket) => ticket.isOpen).length;
-  });
-
-  readonly criticalSupportTickets = computed(() => {
-    return this.supportTicketsSignal().filter((ticket) => ticket.isCritical)
-      .length;
-  });
-
-  readonly resolvedSupportTickets = computed(() => {
-    return this.supportTicketsSignal().filter(
-      (ticket) => ticket.status === 'RESOLVED' || ticket.status === 'CLOSED'
-    ).length;
-  });
-
-  readonly supportResolutionRate = computed(() => {
-    const total = this.totalSupportTickets();
-
-    if (!total) {
-      return 0;
-    }
-
-    return Math.round((this.resolvedSupportTickets() / total) * 100);
-  });
-
-  readonly prioritySupportTicket = computed(() => {
-    const tickets = this.supportTicketsSorted();
-
-    return tickets.length ? tickets[0] : null;
-  });
-
-  readonly totalMaintenanceTickets = computed(() => {
-    return this.maintenanceTicketsSignal().length;
-  });
-
-  readonly pendingMaintenanceTickets = computed(() => {
-    return this.maintenanceTicketsSignal().filter(
-      (ticket) => ticket.status === 'PENDING' || ticket.status === 'IN_PROGRESS'
-    ).length;
-  });
-
-  readonly completedMaintenanceTickets = computed(() => {
-    return this.maintenanceTicketsSignal().filter(
-      (ticket) => ticket.status === 'COMPLETED'
-    ).length;
-  });
-
-  readonly maintenanceCompletionRate = computed(() => {
-    const total = this.totalMaintenanceTickets();
-
-    if (!total) {
-      return 0;
-    }
-
-    return Math.round((this.completedMaintenanceTickets() / total) * 100);
-  });
-
-  readonly nextMaintenanceTicket = computed(() => {
-    const pendingTickets = this.maintenanceTicketsSorted().filter(
-      (ticket) => ticket.status === 'PENDING' || ticket.status === 'IN_PROGRESS'
-    );
-
-    return pendingTickets.length ? pendingTickets[0] : null;
-  });
+  get completedMaintenanceTickets() {
+    return this.store.completedMaintenanceTickets;
+  }
 
   constructor(
-    private readonly authSession: AuthSessionService,
     private readonly supportTicketsApi: SupportTicketsApiService,
-    private readonly maintenanceTicketsApi: MaintenanceTicketsApiService
+    private readonly maintenanceTicketsApi: MaintenanceTicketsApiService,
+    private readonly deviceControlFacade: DeviceControlFacade,
+    private readonly store: ServiceManagementStore
   ) {}
 
+  async loadServiceManagement(): Promise<void> {
+    this.startRequest();
+
+    try {
+      await Promise.all([
+        this.loadSupportTickets(),
+        this.loadMaintenanceTickets(),
+        this.deviceControlFacade.loadDevices(),
+      ]);
+    } catch (error) {
+      console.error(error);
+      this.store.setError('serviceManagement.loadError');
+    } finally {
+      this.finishRequest();
+    }
+  }
+
   async loadSupportTickets(): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+    const responses = await firstValueFrom(
+      this.supportTicketsApi.findAllForCurrentUser()
+    );
 
-    try {
-      const userId = this.getCurrentUserId();
-
-      const responses = await firstValueFrom(
-        this.supportTicketsApi.findByUserId(userId)
+    const tickets = responses
+      .map((response) => this.supportTicketAssembler.toEntity(response))
+      .sort(
+        (first, second) =>
+          new Date(second.createdAt).getTime() -
+          new Date(first.createdAt).getTime()
       );
 
-      this.supportTicketsSignal.set(
-        responses.map((response) =>
-          this.supportTicketAssembler.toEntity(response)
-        )
-      );
-    } catch (error) {
-      console.error(error);
-      this.errorSignal.set('serviceManagement.loadSupportError');
-    } finally {
-      this.loadingSignal.set(false);
-    }
+    this.store.setSupportTickets(tickets);
   }
 
-  async loadMaintenanceTickets(): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async createSupportTicket(command: CreateSupportTicketCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      const responses = await firstValueFrom(
-        this.maintenanceTicketsApi.findAll()
-      );
+      if (!command.subject.trim() || !command.description.trim()) {
+        this.store.setError('serviceManagement.supportCreateError');
+        return false;
+      }
 
-      this.maintenanceTicketsSignal.set(
-        responses.map((response) =>
-          this.maintenanceTicketAssembler.toEntity(response)
-        )
-      );
-    } catch (error) {
-      console.error(error);
-      this.errorSignal.set('serviceManagement.loadMaintenanceError');
-    } finally {
-      this.loadingSignal.set(false);
-    }
-  }
-
-  async createSupportTicket(payload: CreateSupportTicketDto): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
-
-    try {
-      const userId = this.getCurrentUserId();
-
-      await firstValueFrom(
+      const response = await firstValueFrom(
         this.supportTicketsApi.create({
-          userId,
-          subject: payload.subject,
-          description: payload.description,
-          priority: payload.priority,
-          status: payload.status ?? 'OPEN',
+          subject: command.subject.trim(),
+          description: command.description.trim(),
+          priority: command.priority,
+          status: 'OPEN',
           createdAt: new Date().toISOString().slice(0, 10),
         })
       );
 
-      await this.loadSupportTickets();
+      const ticket = this.supportTicketAssembler.toEntity(response);
+      this.store.prependSupportTicket(ticket);
+      return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('serviceManagement.createSupportError');
+      this.store.setError('serviceManagement.supportCreateError');
+      return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async createMaintenanceTicket(
-    payload: CreateMaintenanceTicketDto
-  ): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async updateSupportTicketStatus(
+    command: UpdateSupportTicketStatusCommand
+  ): Promise<boolean> {
+    this.startRequest();
 
     try {
-      await firstValueFrom(
-        this.maintenanceTicketsApi.create({
-          deviceId: payload.deviceId,
-          title: payload.title,
-          description: payload.description,
-          scheduledAt: payload.scheduledAt,
-          status: payload.status ?? 'PENDING',
+      const response = await firstValueFrom(
+        this.supportTicketsApi.updateStatus(command.ticketId, {
+          status: command.status,
         })
       );
 
-      await this.loadMaintenanceTickets();
+      const ticket = this.supportTicketAssembler.toEntity(response);
+      this.store.updateSupportTicket(ticket);
+      return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('serviceManagement.createMaintenanceError');
+      this.store.setError('serviceManagement.supportUpdateError');
+      return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  clearError(): void {
-    this.errorSignal.set(null);
+  async deleteSupportTicket(ticketId: number): Promise<boolean> {
+    this.startRequest();
+
+    try {
+      await firstValueFrom(this.supportTicketsApi.delete(ticketId));
+      this.store.removeSupportTicket(ticketId);
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('serviceManagement.supportDeleteError');
+      return false;
+    } finally {
+      this.finishRequest();
+    }
   }
 
-  private getCurrentUserId(): number {
-    const userId = this.authSession.userId();
+  async loadMaintenanceTickets(): Promise<void> {
+    const responses = await firstValueFrom(
+      this.maintenanceTicketsApi.findAllForCurrentUser()
+    );
 
-    if (!userId) {
-      throw new Error('Authenticated user id was not found.');
+    const tickets = responses
+      .map((response) => this.maintenanceTicketAssembler.toEntity(response))
+      .sort(
+        (first, second) =>
+          new Date(second.createdAt).getTime() -
+          new Date(first.createdAt).getTime()
+      );
+
+    this.store.setMaintenanceTickets(tickets);
+  }
+
+  async createMaintenanceTicket(
+    command: CreateMaintenanceTicketCommand
+  ): Promise<boolean> {
+    this.startRequest();
+
+    try {
+      if (
+        !command.deviceId ||
+        !command.deviceName.trim() ||
+        !command.description.trim() ||
+        !command.scheduledDate
+      ) {
+        this.store.setError('serviceManagement.maintenanceCreateError');
+        return false;
+      }
+
+      const response = await firstValueFrom(
+        this.maintenanceTicketsApi.create({
+          deviceId: Number(command.deviceId),
+          deviceName: command.deviceName.trim(),
+          type: command.type,
+          description: command.description.trim(),
+          scheduledDate: command.scheduledDate,
+          status: 'PENDING',
+          createdAt: new Date().toISOString().slice(0, 10),
+        })
+      );
+
+      const ticket = this.maintenanceTicketAssembler.toEntity(response);
+      this.store.prependMaintenanceTicket(ticket);
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('serviceManagement.maintenanceCreateError');
+      return false;
+    } finally {
+      this.finishRequest();
     }
+  }
 
-    return userId;
+  async updateMaintenanceTicketStatus(
+    command: UpdateMaintenanceTicketStatusCommand
+  ): Promise<boolean> {
+    this.startRequest();
+
+    try {
+      const response = await firstValueFrom(
+        this.maintenanceTicketsApi.updateStatus(command.ticketId, {
+          status: command.status,
+        })
+      );
+
+      const ticket = this.maintenanceTicketAssembler.toEntity(response);
+      this.store.updateMaintenanceTicket(ticket);
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('serviceManagement.maintenanceUpdateError');
+      return false;
+    } finally {
+      this.finishRequest();
+    }
+  }
+
+  async deleteMaintenanceTicket(ticketId: number): Promise<boolean> {
+    this.startRequest();
+
+    try {
+      await firstValueFrom(this.maintenanceTicketsApi.delete(ticketId));
+      this.store.removeMaintenanceTicket(ticketId);
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('serviceManagement.maintenanceDeleteError');
+      return false;
+    } finally {
+      this.finishRequest();
+    }
+  }
+
+  getDeviceName(deviceId: number): string {
+    return this.deviceControlFacade.getDeviceName(deviceId);
+  }
+
+  clearMessages(): void {
+    this.store.clearMessages();
+  }
+
+  private startRequest(): void {
+    this.store.setLoading(true);
+    this.store.clearMessages();
+  }
+
+  private finishRequest(): void {
+    this.store.setLoading(false);
   }
 }

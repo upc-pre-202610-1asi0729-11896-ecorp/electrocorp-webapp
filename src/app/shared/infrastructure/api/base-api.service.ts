@@ -1,47 +1,45 @@
+// src/app/shared/infrastructure/api/base-api.service.ts
+
+import { Inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
 import { API_BASE_URL } from './api-config';
 import { BaseAssembler } from '../assemblers/base.assembler';
-import { BaseResource } from '../resources/base.resource';
-import { BaseResponse } from '../responses/base.response';
 
-export abstract class BaseApiService<
-  TEntity,
-  TResource extends BaseResource,
-  TResponse extends BaseResponse<number>
-> {
-  protected readonly apiBaseUrl = API_BASE_URL;
+export abstract class BaseApiService<TEntity, TResource, TResponse> {
+  protected readonly resourceEndpoint: string;
 
   protected constructor(
     protected readonly http: HttpClient,
-    protected readonly endpointPath: string,
+    @Inject(API_BASE_URL) protected readonly apiBaseUrl: string,
+    endpoint: string,
     protected readonly assembler: BaseAssembler<TEntity, TResource, TResponse>
-  ) {}
-
-  findAll(): Observable<TResponse[]> {
-    return this.http.get<TResponse[]>(`${this.apiBaseUrl}/${this.endpointPath}`);
+  ) {
+    this.resourceEndpoint = `${this.apiBaseUrl}/${endpoint}`;
   }
 
-  findById(id: number): Observable<TResponse> {
-    return this.http.get<TResponse>(`${this.apiBaseUrl}/${this.endpointPath}/${id}`);
+  findAll(): Observable<TResponse[]> {
+    return this.http.get<TResponse[]>(this.resourceEndpoint);
+  }
+
+  findById(id: number | string): Observable<TResponse> {
+    return this.http.get<TResponse>(`${this.resourceEndpoint}/${id}`);
   }
 
   create(resource: TResource): Observable<TResponse> {
-    return this.http.post<TResponse>(`${this.apiBaseUrl}/${this.endpointPath}`, {
-      id: Date.now(),
-      ...resource,
-    });
+    return this.http.post<TResponse>(this.resourceEndpoint, resource);
   }
 
-  update(id: number, resource: Partial<TResource>): Observable<TResponse> {
-    return this.http.patch<TResponse>(
-      `${this.apiBaseUrl}/${this.endpointPath}/${id}`,
-      resource
-    );
+  update(id: number | string, resource: Partial<TResource>): Observable<TResponse> {
+    return this.http.put<TResponse>(`${this.resourceEndpoint}/${id}`, resource);
   }
 
-  delete(id: number): Observable<void> {
-    return this.http.delete<void>(`${this.apiBaseUrl}/${this.endpointPath}/${id}`);
+  patch(id: number | string, resource: Partial<TResource>): Observable<TResponse> {
+    return this.http.patch<TResponse>(`${this.resourceEndpoint}/${id}`, resource);
+  }
+
+  delete(id: number | string): Observable<void> {
+    return this.http.delete<void>(`${this.resourceEndpoint}/${id}`);
   }
 }

@@ -1,25 +1,26 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
+import { Invoice } from '../../domain/model/invoice.entity';
 
-import { Plan, PlanCode } from '../../domain/model/plan.entity';
-import { Subscription } from '../../domain/model/subscription.entity';
+import { CancelSubscriptionCommand } from '../commands/cancel-subscription.command';
+import { DownloadInvoiceCommand } from '../commands/download-invoice.command';
+import { PaymentFormCommand } from '../commands/payment-form.command';
 
-import { SubscribeDto } from '../dtos/subscribe.dto';
-import { CancelSubscriptionDto } from '../dtos/cancel-subscription.dto';
-import { ProcessPaymentDto } from '../dtos/process-payment.dto';
-
+import { InvoicesApiService } from '../../infrastructure/api/invoices-api.service';
+import { PaymentsApiService } from '../../infrastructure/api/payments-api.service';
 import { PlansApiService } from '../../infrastructure/api/plans-api.service';
 import { SubscriptionsApiService } from '../../infrastructure/api/subscriptions-api.service';
-import { PaymentsApiService } from '../../infrastructure/api/payments-api.service';
 
+import { InvoiceAssembler } from '../../infrastructure/assemblers/invoice.assembler';
+import { PaymentAssembler } from '../../infrastructure/assemblers/payment.assembler';
 import { PlanAssembler } from '../../infrastructure/assemblers/plan.assembler';
 import { SubscriptionAssembler } from '../../infrastructure/assemblers/subscription.assembler';
-import { PaymentAssembler } from '../../infrastructure/assemblers/payment.assembler';
 
+import { PaymentValidationService } from '../../domain/services/payment-validation.service';
 import { SubscriptionPolicyService } from '../../domain/services/subscription-policy.service';
-import { Payment } from '../../domain/model/payment.entity';
+
+import { BillingStore } from '../stores/billing.store';
 
 @Injectable({
   providedIn: 'root',
@@ -28,227 +29,293 @@ export class BillingFacade {
   private readonly planAssembler = new PlanAssembler();
   private readonly subscriptionAssembler = new SubscriptionAssembler();
   private readonly paymentAssembler = new PaymentAssembler();
+  private readonly invoiceAssembler = new InvoiceAssembler();
 
-  private readonly plansSignal = signal<Plan[]>([]);
-  private readonly activeSubscriptionSignal = signal<Subscription | null>(null);
-  private readonly lastPaymentSignal = signal<Payment | null>(null);
-  private readonly loadingSignal = signal<boolean>(false);
-  private readonly errorSignal = signal<string | null>(null);
+  get plans() {
+    return this.store.plans;
+  }
 
-  readonly plans = computed(() => this.plansSignal());
-  readonly activeSubscription = computed(() => this.activeSubscriptionSignal());
-  readonly lastPayment = computed(() => this.lastPaymentSignal());
-  readonly loading = computed(() => this.loadingSignal());
-  readonly error = computed(() => this.errorSignal());
+  get activeSubscription() {
+    return this.store.activeSubscription;
+  }
 
-  readonly activePlanCode = computed<PlanCode | null>(() => {
-    const subscription = this.activeSubscriptionSignal();
-    return subscription?.isActive ? subscription.planCode : null;
-  });
+  get payments() {
+    return this.store.payments;
+  }
 
-  readonly activePlan = computed<Plan | null>(() => {
-    const activeCode = this.activePlanCode();
+  get invoices() {
+    return this.store.invoices;
+  }
 
-    if (!activeCode) return null;
+  get lastPayment() {
+    return this.store.lastPayment;
+  }
 
-    return this.plansSignal().find((plan) => plan.code === activeCode) ?? null;
-  });
+  get loading() {
+    return this.store.loading;
+  }
 
-  readonly hasActiveSubscription = computed(
-    () => this.activeSubscriptionSignal()?.isActive ?? false
-  );
+  get error() {
+    return this.store.error;
+  }
+
+  get hasActiveSubscription() {
+    return this.store.hasActiveSubscription;
+  }
+
+  get activePlanCode() {
+    return this.store.activePlanCode;
+  }
+
+  get activePlan() {
+    return this.store.activePlan;
+  }
 
   constructor(
     private readonly plansApi: PlansApiService,
     private readonly subscriptionsApi: SubscriptionsApiService,
     private readonly paymentsApi: PaymentsApiService,
+    private readonly invoicesApi: InvoicesApiService,
     private readonly subscriptionPolicyService: SubscriptionPolicyService,
-    private readonly authSession: AuthSessionService
+    private readonly paymentValidationService: PaymentValidationService,
+    private readonly store: BillingStore
   ) {}
 
   async loadBilling(): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+    this.startRequest();
 
     try {
-      await Promise.all([
-        this.loadPlans(),
-        this.loadActiveSubscription(),
-        this.loadLastPayment(),
-      ]);
+      await this.refreshBillingData();
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('billing.loadError');
+      this.store.setError('billing.loadError');
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
   async loadPlans(): Promise<void> {
     const responses = await firstValueFrom(this.plansApi.findAll());
 
-    this.plansSignal.set(
+    this.store.setPlans(
       responses.map((response) => this.planAssembler.toEntity(response))
     );
   }
 
   async loadActiveSubscription(): Promise<void> {
-    const userId = this.getCurrentUserId();
-
-    const responses = await firstValueFrom(
-      this.subscriptionsApi.findActiveByUserId(userId)
+    const response = await firstValueFrom(
+      this.subscriptionsApi.findCurrent()
     );
 
-    const activeSubscription = responses.length
-      ? this.subscriptionAssembler.toEntity(responses[0])
+    const activeSubscription = response
+      ? this.subscriptionAssembler.toEntity(response)
       : null;
 
-    this.activeSubscriptionSignal.set(activeSubscription);
+    this.store.setActiveSubscription(activeSubscription);
   }
 
-  async processFakePayment(payload: ProcessPaymentDto): Promise<boolean> {
-    this.errorSignal.set(null);
-
-    const sanitizedCardNumber = payload.cardNumber.replace(/\s/g, '');
-    const sanitizedCvv = payload.cvv.trim();
-
-    if (sanitizedCardNumber.length < 13 || sanitizedCardNumber.length > 19) {
-      this.errorSignal.set('billing.invalidCardNumber');
-      return false;
-    }
-
-    if (sanitizedCvv.length < 3 || sanitizedCvv.length > 4) {
-      this.errorSignal.set('billing.invalidCvv');
-      return false;
-    }
-
-    if (!payload.holderName.trim()) {
-      this.errorSignal.set('billing.invalidHolderName');
-      return false;
-    }
-
-    const response = await firstValueFrom(
-      this.paymentsApi.create({
-        userId: this.getCurrentUserId(),
-        planCode: payload.planCode,
-        amount: payload.amount,
-        method: 'CARD',
-        status: 'APPROVED',
-        createdAt: new Date().toISOString().slice(0, 10),
-        cardLastFourDigits: sanitizedCardNumber.slice(-4),
-        holderName: payload.holderName.trim(),
-      })
+  async loadPayments(): Promise<void> {
+    const responses = await firstValueFrom(
+      this.paymentsApi.findCurrentUserPayments()
     );
 
-    this.lastPaymentSignal.set(this.paymentAssembler.toEntity(response));
-    return true;
+    const payments = responses
+      .map((response) => this.paymentAssembler.toEntity(response))
+      .sort((first, second) => second.id - first.id);
+
+    this.store.setPayments(payments);
+    this.store.setLastPayment(payments[0] ?? null);
   }
 
-  async subscribe(payload: SubscribeDto): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async loadInvoices(): Promise<void> {
+    const responses = await firstValueFrom(
+      this.invoicesApi.findCurrentUserInvoices()
+    );
+
+    const invoices = responses
+      .map((response) => this.invoiceAssembler.toEntity(response))
+      .sort((first, second) => {
+        const firstDate = new Date(first.issuedAt).getTime();
+        const secondDate = new Date(second.issuedAt).getTime();
+
+        return secondDate - firstDate;
+      });
+
+    this.store.setInvoices(invoices);
+  }
+
+  async processPaymentAndSubscribe(command: PaymentFormCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      const currentSubscription = this.activeSubscriptionSignal();
-
-      const canSubscribe = this.subscriptionPolicyService.canSubscribeToPlan(
-        currentSubscription,
-        payload.planCode
-      );
-
-      if (!canSubscribe) {
-        this.errorSignal.set('billing.alreadySubscribed');
-        return;
-      }
-
-      if (currentSubscription?.isActive) {
-        await this.cancelSubscription({
-          subscriptionId: currentSubscription.id,
-        });
-      }
+      this.validatePaymentCommand(command);
 
       const response = await firstValueFrom(
-        this.subscriptionsApi.create({
-          userId: this.getCurrentUserId(),
-          planCode: payload.planCode,
-          status: 'ACTIVE',
-          startedAt: new Date().toISOString().slice(0, 10),
-          endsAt: null,
+        this.subscriptionsApi.checkout({
+          planCode: command.planCode,
+          holderName: command.holderName.trim(),
+          cardNumber: command.cardNumber,
+          expirationDate: command.expirationDate,
+          cvv: command.cvv,
         })
       );
 
-      this.activeSubscriptionSignal.set(
+      this.store.setActiveSubscription(
         this.subscriptionAssembler.toEntity(response)
       );
+
+      await this.refreshBillingData();
+
+      return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('billing.subscribeError');
+      this.store.setError('billing.subscribeError');
+
+      await this.safeRefreshBillingData();
+
+      return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async cancelSubscription(payload: CancelSubscriptionDto): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async cancelSubscription(_command: CancelSubscriptionCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      const response = await firstValueFrom(
-        this.subscriptionsApi.cancelSubscription(payload.subscriptionId)
-      );
+      await this.cancelActiveSubscriptionByCurrentUser();
+      await this.refreshBillingData();
 
-      this.activeSubscriptionSignal.set(
-        this.subscriptionAssembler.toEntity(response)
-      );
+      return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('billing.cancelError');
+      this.store.setError('billing.cancelError');
+      return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async cancelCurrentSubscription(): Promise<void> {
-    const currentSubscription = this.activeSubscriptionSignal();
+  async cancelCurrentSubscription(): Promise<boolean> {
+    this.startRequest();
 
-    if (!currentSubscription) return;
+    try {
+      const currentSubscription = this.store.activeSubscription();
 
-    await this.cancelSubscription({
-      subscriptionId: currentSubscription.id,
-    });
+      if (!this.subscriptionPolicyService.canCancelSubscription(currentSubscription)) {
+        this.store.setError('billing.cancelError');
+        return false;
+      }
+
+      await this.cancelActiveSubscriptionByCurrentUser();
+      await this.refreshBillingData();
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('billing.cancelError');
+      return false;
+    } finally {
+      this.finishRequest();
+    }
   }
 
-  clearError(): void {
-    this.errorSignal.set(null);
-  }
+  downloadInvoice(command: DownloadInvoiceCommand): void {
+    const invoice: Invoice | undefined = this.store
+      .invoices()
+      .find((item) => item.id === command.invoiceId);
 
-  async loadLastPayment(): Promise<void> {
-    const userId = this.getCurrentUserId();
-
-    const responses = await firstValueFrom(this.paymentsApi.findByUserId(userId));
-
-    if (responses.length === 0) {
-      this.lastPaymentSignal.set(null);
+    if (!invoice) {
+      this.store.setError('billing.invoiceNotFound');
       return;
     }
 
-    const sortedPayments = [...responses].sort(
-      (first, second) =>
-        new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
-    );
+    const content = [
+      'ELECTROCORP INVOICE',
+      `Invoice ID: ${invoice.id}`,
+      `Invoice Number: ${invoice.invoiceNumber}`,
+      `User ID: ${invoice.userId}`,
+      `Amount: ${invoice.currency} ${invoice.totalAmount}`,
+      `Issued At: ${invoice.issuedAt}`,
+    ].join('\n');
 
-    this.lastPaymentSignal.set(
-      this.paymentAssembler.toEntity(sortedPayments[0])
-    );
+    const blob = new Blob([content], {
+      type: 'text/plain;charset=utf-8',
+    });
+
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+
+    anchor.href = url;
+    anchor.download = `electrocorp-invoice-${invoice.id}.txt`;
+    anchor.click();
+
+    URL.revokeObjectURL(url);
   }
 
-  private getCurrentUserId(): number {
-    const userId = this.authSession.userId();
+  clearMessages(): void {
+    this.store.clearMessages();
+  }
 
-    if (!userId) {
-      throw new Error('Authenticated user id was not found.');
+  clearActiveSubscription(): void {
+    this.store.setActiveSubscription(null);
+  }
+
+  private async cancelActiveSubscriptionByCurrentUser(): Promise<void> {
+    await firstValueFrom(
+      this.subscriptionsApi.cancelCurrent()
+    );
+
+    this.store.setActiveSubscription(null);
+  }
+
+  private validatePaymentCommand(command: PaymentFormCommand): void {
+    this.store.setError(null);
+
+    if (!this.paymentValidationService.isValidHolderName(command.holderName)) {
+      this.store.setError('billing.invalidHolderName');
+      throw new Error('Invalid holder name.');
     }
 
-    return userId;
+    if (!this.paymentValidationService.isValidCardNumber(command.cardNumber)) {
+      this.store.setError('billing.invalidCardNumber');
+      throw new Error('Invalid card number.');
+    }
+
+    if (!this.paymentValidationService.isValidExpirationDate(command.expirationDate)) {
+      this.store.setError('billing.invalidExpirationDate');
+      throw new Error('Invalid expiration date.');
+    }
+
+    if (!this.paymentValidationService.isValidCvv(command.cvv)) {
+      this.store.setError('billing.invalidCvv');
+      throw new Error('Invalid CVV.');
+    }
+  }
+
+  private async refreshBillingData(): Promise<void> {
+    await Promise.all([
+      this.loadPlans(),
+      this.loadActiveSubscription(),
+      this.loadPayments(),
+      this.loadInvoices(),
+    ]);
+  }
+
+  private async safeRefreshBillingData(): Promise<void> {
+    try {
+      await this.refreshBillingData();
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
+  private startRequest(): void {
+    this.store.setLoading(true);
+    this.store.clearMessages();
+  }
+
+  private finishRequest(): void {
+    this.store.setLoading(false);
   }
 }
