@@ -4,10 +4,13 @@ import { firstValueFrom } from 'rxjs';
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 
 import { CreateConsumptionReportCommand } from '../commands/create-consumption-report.command';
-import { GenerateConsumptionReportDto } from '../dtos/generate-consumption-report.dto';
+import { GenerateConsumptionReportCommand } from '../commands/generate-consumption-report.command';
 import { CreateEnergyGoalDto } from '../dtos/create-energy-goal.dto';
 
-import { ConsumptionReport } from '../../domain/model/consumption-report.entity';
+import {
+  ConsumptionReport,
+  ConsumptionReportPeriod,
+} from '../../domain/model/consumption-report.entity';
 import { EnergyGoal } from '../../domain/model/energy-goal.entity';
 import { ReportSummaryService } from '../../domain/services/report-summary.service';
 
@@ -256,8 +259,8 @@ export class ReportingFacade {
   }
 
   async generateConsumptionReport(
-    payload: GenerateConsumptionReportDto
-  ): Promise<void> {
+    command: GenerateConsumptionReportCommand
+  ): Promise<boolean> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -265,28 +268,28 @@ export class ReportingFacade {
       const userId = this.getCurrentUserId();
       const today = new Date().toISOString().slice(0, 10);
 
-      if (!payload.startDate || !payload.endDate) {
+      if (!command.startDate || !command.endDate) {
         this.errorSignal.set('reporting.invalidReportDateRange');
-        return;
+        return false;
       }
 
-      if (payload.startDate > payload.endDate) {
+      if (command.startDate > command.endDate) {
         this.errorSignal.set('reporting.invalidReportDateRange');
-        return;
+        return false;
       }
 
-      if (payload.endDate > today) {
+      if (command.endDate > today) {
         this.errorSignal.set('reporting.futureReportDateError');
-        return;
+        return false;
       }
 
       const readings = await firstValueFrom(
-        this.readingsApi.findByDateRange(payload.startDate, payload.endDate)
+        this.readingsApi.findByDateRange(command.startDate, command.endDate)
       );
 
       if (!readings.length) {
         this.errorSignal.set('reporting.noReadingsForReport');
-        return;
+        return false;
       }
 
       const totalWatts = readings.reduce(
@@ -309,19 +312,25 @@ export class ReportingFacade {
       await firstValueFrom(
         this.consumptionReportsApi.create({
           userId,
-          startDate: payload.startDate,
-          endDate: payload.endDate,
+          title: `Consumption report ${command.startDate} - ${command.endDate}`,
+          period: this.resolveReportPeriod(command.startDate, command.endDate),
+          startDate: command.startDate,
+          endDate: command.endDate,
           totalWatts,
           averageWatts,
+          highestWatts: highestReading,
           highestReading,
           recommendation,
+          generatedAt: today,
         })
       );
 
       await this.loadReports();
+      return true;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('reporting.generateReportError');
+      return false;
     } finally {
       this.loadingSignal.set(false);
     }
@@ -383,6 +392,32 @@ export class ReportingFacade {
     }
 
     return 'Consumption is stable. Keep monitoring routines and standby energy usage.';
+  }
+
+  private resolveReportPeriod(
+    startDate: string,
+    endDate: string
+  ): ConsumptionReportPeriod {
+    const start = new Date(startDate).getTime();
+    const end = new Date(endDate).getTime();
+    const days = Math.max(
+      Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1,
+      1
+    );
+
+    if (days <= 1) {
+      return 'DAILY';
+    }
+
+    if (days <= 7) {
+      return 'WEEKLY';
+    }
+
+    if (days <= 31) {
+      return 'MONTHLY';
+    }
+
+    return 'YEARLY';
   }
 
   private getCurrentUserId(): number {
