@@ -3,11 +3,13 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 
+import { CreateConsumptionReportCommand } from '../commands/create-consumption-report.command';
 import { GenerateConsumptionReportDto } from '../dtos/generate-consumption-report.dto';
 import { CreateEnergyGoalDto } from '../dtos/create-energy-goal.dto';
 
 import { ConsumptionReport } from '../../domain/model/consumption-report.entity';
 import { EnergyGoal } from '../../domain/model/energy-goal.entity';
+import { ReportSummaryService } from '../../domain/services/report-summary.service';
 
 import { ConsumptionReportsApiService } from '../../infrastructure/api/consumption-reports-api.service';
 import { EnergyGoalsApiService } from '../../infrastructure/api/energy-goals-api.service';
@@ -59,10 +61,7 @@ export class ReportingFacade {
   readonly totalGoals = computed(() => this.goalsSignal().length);
 
   readonly totalWattsReported = computed(() =>
-    this.reportsSignal().reduce(
-      (total, report) => total + report.totalWatts,
-      0
-    )
+    this.reportSummaryService.calculateTotalReportedWatts(this.reportsSignal())
   );
 
   readonly highestReading = computed(() => {
@@ -82,12 +81,9 @@ export class ReportingFacade {
       return 0;
     }
 
-    const sum = reports.reduce(
-      (total, report) => total + report.averageWatts,
-      0
+    return Math.round(
+      this.reportSummaryService.calculateAverageReportedWatts(reports)
     );
-
-    return Math.round(sum / reports.length);
   });
 
   readonly criticalReports = computed(
@@ -97,9 +93,7 @@ export class ReportingFacade {
   );
 
   readonly strongestReport = computed(() => {
-    const reports = this.reportsSorted();
-
-    return reports.length ? reports[0] : null;
+    return this.reportSummaryService.findHighestReport(this.reportsSignal());
   });
 
   readonly maxReportTotalWatts = computed(() => {
@@ -161,7 +155,8 @@ export class ReportingFacade {
     private readonly consumptionReportsApi: ConsumptionReportsApiService,
     private readonly energyGoalsApi: EnergyGoalsApiService,
     private readonly readingsApi: ReadingsApiService,
-    private readonly authSession: AuthSessionService
+    private readonly authSession: AuthSessionService,
+    private readonly reportSummaryService: ReportSummaryService
   ) {}
 
   async loadReports(): Promise<void> {
@@ -205,6 +200,56 @@ export class ReportingFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('reporting.loadGoalsError');
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async createConsumptionReport(
+    command: CreateConsumptionReportCommand
+  ): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const userId = this.getCurrentUserId();
+      const title = command.title.trim();
+      const today = new Date().toISOString().slice(0, 10);
+
+      if (!title || !command.startDate || !command.endDate) {
+        this.errorSignal.set('reporting.invalidReportDateRange');
+        return false;
+      }
+
+      if (command.startDate > command.endDate) {
+        this.errorSignal.set('reporting.invalidReportDateRange');
+        return false;
+      }
+
+      const response = await firstValueFrom(
+        this.consumptionReportsApi.create({
+          userId,
+          title,
+          period: command.period,
+          startDate: command.startDate,
+          endDate: command.endDate,
+          totalWatts: 0,
+          averageWatts: 0,
+          highestWatts: 0,
+          highestReading: 0,
+          recommendation: this.buildRecommendation(0, 0, 0),
+          generatedAt: today,
+        })
+      );
+
+      const report = this.consumptionReportAssembler.toEntity(response);
+      this.reportsSignal.update((reports) => [report, ...reports]);
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('reporting.createReportError');
+      return false;
     } finally {
       this.loadingSignal.set(false);
     }

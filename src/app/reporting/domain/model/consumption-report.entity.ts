@@ -1,36 +1,56 @@
 import { BaseEntity } from '../../../shared/domain/model/base.entity';
 
+export type ConsumptionReportPeriod = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY';
+
 export class ConsumptionReport extends BaseEntity<number> {
   private readonly _userId: number;
+  private readonly _title: string;
+  private readonly _period: ConsumptionReportPeriod;
   private readonly _startDate: string;
   private readonly _endDate: string;
   private readonly _totalWatts: number;
   private readonly _averageWatts: number;
-  private readonly _highestReading: number;
+  private readonly _highestWatts: number;
   private readonly _recommendation: string;
+  private readonly _generatedAt: string;
 
   constructor(props: {
     id: number;
     userId: number;
+    title?: string;
+    period?: ConsumptionReportPeriod;
     startDate: string;
     endDate: string;
     totalWatts: number;
     averageWatts: number;
-    highestReading: number;
-    recommendation: string;
+    highestWatts?: number;
+    highestReading?: number;
+    recommendation?: string;
+    generatedAt?: string;
   }) {
     super(props.id);
     this._userId = props.userId;
+    this._title = props.title ?? `${props.startDate} - ${props.endDate}`;
+    this._period = props.period ?? 'DAILY';
     this._startDate = props.startDate;
     this._endDate = props.endDate;
     this._totalWatts = props.totalWatts;
     this._averageWatts = props.averageWatts;
-    this._highestReading = props.highestReading;
-    this._recommendation = props.recommendation;
+    this._highestWatts = props.highestWatts ?? props.highestReading ?? 0;
+    this._recommendation = props.recommendation ?? '';
+    this._generatedAt = props.generatedAt ?? props.endDate;
   }
 
   get userId(): number {
     return this._userId;
+  }
+
+  get title(): string {
+    return this._title;
+  }
+
+  get period(): ConsumptionReportPeriod {
+    return this._period;
   }
 
   get startDate(): string {
@@ -49,15 +69,19 @@ export class ConsumptionReport extends BaseEntity<number> {
     return this._averageWatts;
   }
 
+  get highestWatts(): number {
+    return this._highestWatts;
+  }
+
   get highestReading(): number {
-    return this._highestReading;
+    return this._highestWatts;
   }
 
   get recommendation(): string {
     return this._recommendation;
   }
 
-  get period(): string {
-    return `${this._startDate} - ${this._endDate}`;
+  get generatedAt(): string {
+    return this._generatedAt;
   }
 }
