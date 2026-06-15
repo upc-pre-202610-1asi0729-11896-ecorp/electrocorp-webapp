@@ -1,40 +1,40 @@
 .auth-page {
-  min-height: calc(100vh - 180px);
+  min-height: 68vh;
   display: grid;
   place-items: center;
 }
 
 .auth-card {
-  width: min(680px, 100%);
-  padding: 36px;
-  border-radius: 28px;
-  background: var(--card-bg);
+  width: min(460px, 100%);
+  padding: 30px;
   border: 1px solid var(--border-color);
-  box-shadow: var(--card-shadow);
+  border-radius: 28px;
+  background: var(--surface-color);
 }
 
 .eyebrow {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   color: var(--accent-color);
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
   font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
 }
 
 h1 {
-  margin: 0 0 14px;
-  font-size: clamp(2rem, 4vw, 3rem);
+  margin: 0;
+  font-size: 2.4rem;
 }
 
 .subtitle {
-  margin: 0 0 24px;
+  margin: 12px 0 20px;
   color: var(--text-secondary);
-  line-height: 1.7;
+  line-height: 1.6;
 }
 
 .auth-form {
   display: grid;
-  gap: 18px;
+  gap: 16px;
+  margin-top: 18px;
 }
 
 label {
@@ -46,47 +46,42 @@ label {
 
 input {
   width: 100%;
-  padding: 14px 16px;
-  border-radius: 14px;
+  padding: 13px 14px;
   border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  background: rgba(0, 0, 0, 0.18);
-  font: inherit;
-}
-
-.error-message {
-  margin: 0;
-  color: var(--danger-color);
-  font-weight: 900;
-}
-
-.actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.primary-btn,
-.secondary-btn {
-  padding: 13px 18px;
   border-radius: 14px;
-  font-weight: 900;
-  text-decoration: none;
+  color: var(--text-primary);
+  background: var(--field-bg);
+}
+
+button {
+  min-height: 46px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--text-on-action);
+  background: var(--ec-action-bg);
   cursor: pointer;
+  font-weight: 900;
 }
 
-.primary-btn {
-  border: none;
-  background: var(--accent-color);
-  color: var(--accent-contrast);
-}
-
-.primary-btn:disabled {
-  opacity: 0.7;
+button:disabled {
+  opacity: 0.65;
   cursor: not-allowed;
 }
 
-.secondary-btn {
+.links {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+
+.links a {
+  color: var(--text-secondary);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.links a:hover {
   color: var(--text-primary);
-  border: 1px solid var(--border-color);
 }
