@@ -42,7 +42,7 @@ export class IamFacade {
     private readonly router: Router
   ) {}
 
-  async signIn(payload: SignInCommand): Promise<void> {
+  async signIn(payload: SignInCommand): Promise<boolean> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -64,15 +64,17 @@ export class IamFacade {
       });
 
       await this.router.navigate(['/home']);
+      return true;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('auth.signInError');
+      return false;
     } finally {
       this.loadingSignal.set(false);
     }
   }
 
-  async signUp(payload: SignUpCommand): Promise<void> {
+  async signUp(payload: SignUpCommand): Promise<boolean> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
@@ -83,22 +85,22 @@ export class IamFacade {
 
       if (!fullName) {
         this.errorSignal.set('auth.fullNameRequired');
-        return;
+        return false;
       }
 
       if (!this.isValidEmail(normalizedEmail)) {
         this.errorSignal.set('auth.invalidEmail');
-        return;
+        return false;
       }
 
       if (!this.isAllowedEmailProvider(normalizedEmail)) {
         this.errorSignal.set('auth.invalidEmailProvider');
-        return;
+        return false;
       }
 
       if (password.length < 8) {
         this.errorSignal.set('auth.passwordTooShort');
-        return;
+        return false;
       }
 
       const response = await firstValueFrom(this.authApi.signUp({
@@ -119,15 +121,17 @@ export class IamFacade {
       });
 
       await this.router.navigate(['/billing/plans']);
+      return true;
     } catch (error) {
       console.error(error);
 
       if (error instanceof Error && error.message === 'Email already exists.') {
         this.errorSignal.set('auth.emailAlreadyExists');
-        return;
+        return false;
       }
 
       this.errorSignal.set('auth.signUpError');
+      return false;
     } finally {
       this.loadingSignal.set(false);
     }
