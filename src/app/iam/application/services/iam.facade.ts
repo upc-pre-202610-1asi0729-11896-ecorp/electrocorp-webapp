@@ -1,292 +1,324 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 
-import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
+import {
+  AuthenticatedUserSession,
+  AuthSessionService,
+} from '../../../shared/application/services/auth-session.service';
+import { ROUTE_PATHS } from '../../../shared/infrastructure/constants/route-paths';
+
+import { User } from '../../domain/model/user.entity';
+
 import { DeleteAccountCommand } from '../commands/delete-account.command';
 import { RecoverPasswordCommand } from '../commands/recover-password.command';
 import { SignInCommand } from '../commands/sign-in.command';
 import { SignUpCommand } from '../commands/sign-up.command';
 import { UpdateProfileCommand } from '../commands/update-profile.command';
-import { User } from '../../domain/model/user.entity';
-import { AccessProfile } from '../../domain/model/access-profile.entity';
+
 import { AuthApiService } from '../../infrastructure/api/auth-api.service';
-import { IamApiService } from '../../infrastructure/api/iam-api.service';
 import { UsersApiService } from '../../infrastructure/api/users-api.service';
 import { UserAssembler } from '../../infrastructure/assemblers/user.assembler';
-import { AccessProfileAssembler } from '../../infrastructure/assemblers/access-profile.assembler';
+
+import { IamStore } from '../stores/iam.store';
 
 @Injectable({
   providedIn: 'root',
 })
 export class IamFacade {
   private readonly userAssembler = new UserAssembler();
-  private readonly accessProfileAssembler = new AccessProfileAssembler();
 
-  private readonly currentUserSignal = signal<User | null>(null);
-  private readonly accessProfilesSignal = signal<AccessProfile[]>([]);
-  private readonly loadingSignal = signal<boolean>(false);
-  private readonly errorSignal = signal<string | null>(null);
+  get currentUser() {
+    return this.store.currentUser;
+  }
 
-  readonly currentUser = computed(() => this.currentUserSignal());
-  readonly accessProfiles = computed(() => this.accessProfilesSignal());
-  readonly loading = computed(() => this.loadingSignal());
-  readonly error = computed(() => this.errorSignal());
-  readonly isAuthenticated = computed(() => this.currentUserSignal() !== null);
+  get loading() {
+    return this.store.loading;
+  }
+
+  get error() {
+    return this.store.error;
+  }
+
+  get isAuthenticated() {
+    return this.store.isAuthenticated;
+  }
 
   constructor(
     private readonly authApi: AuthApiService,
-    private readonly iamApi: IamApiService,
     private readonly usersApi: UsersApiService,
     private readonly authSession: AuthSessionService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly store: IamStore
   ) {}
 
-  async signIn(payload: SignInCommand): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async signIn(command: SignInCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      const response = await firstValueFrom(this.authApi.signIn({
-        email: payload.email,
-        password: payload.password,
-      }));
+      if (!this.isValidEmail(command.email)) {
+        this.store.setError('auth.invalidEmail');
+        return false;
+      }
+
+      if (!command.password.trim()) {
+        this.store.setError('auth.signInError');
+        return false;
+      }
+
+      const response = await firstValueFrom(
+        this.authApi.signIn({
+          email: command.email.trim().toLowerCase(),
+          password: command.password,
+        })
+      );
 
       const user = this.userAssembler.toEntity(response.user);
+      this.setAuthenticatedUser(user, response.token);
 
-      this.currentUserSignal.set(user);
-      this.accessProfilesSignal.set([]);
+      await this.router.navigateByUrl(ROUTE_PATHS.HOME);
 
-      this.authSession.startSession({
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-      });
-
-      await this.router.navigate(['/home']);
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('auth.signInError');
+      this.store.setError('auth.signInError');
       return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async signUp(payload: SignUpCommand): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async signUp(command: SignUpCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      const normalizedEmail = payload.email.trim().toLowerCase();
-      const password = payload.password.trim();
-      const fullName = payload.fullName.trim();
-
-      if (!fullName) {
-        this.errorSignal.set('auth.fullNameRequired');
+      if (!command.fullName.trim()) {
+        this.store.setError('auth.fullNameRequired');
         return false;
       }
 
-      if (!this.isValidEmail(normalizedEmail)) {
-        this.errorSignal.set('auth.invalidEmail');
+      if (!this.isValidEmail(command.email)) {
+        this.store.setError('auth.invalidEmail');
         return false;
       }
 
-      if (!this.isAllowedEmailProvider(normalizedEmail)) {
-        this.errorSignal.set('auth.invalidEmailProvider');
+      if (!this.isAllowedEmailProvider(command.email)) {
+        this.store.setError('auth.invalidEmailProvider');
         return false;
       }
 
-      if (password.length < 8) {
-        this.errorSignal.set('auth.passwordTooShort');
+      if (command.password.length < 8) {
+        this.store.setError('auth.passwordTooShort');
         return false;
       }
 
-      const response = await firstValueFrom(this.authApi.signUp({
-        fullName,
-        email: normalizedEmail,
-        password,
-      }));
+      const response = await firstValueFrom(
+        this.authApi.signUp({
+          fullName: command.fullName.trim(),
+          email: command.email.trim().toLowerCase(),
+          password: command.password,
+        })
+      );
 
       const user = this.userAssembler.toEntity(response.user);
+      this.setAuthenticatedUser(user, response.token);
 
-      this.currentUserSignal.set(user);
-      this.accessProfilesSignal.set([]);
+      await this.router.navigateByUrl(ROUTE_PATHS.BILLING.PLANS);
 
-      this.authSession.startSession({
-        id: user.id,
-        email: user.email,
-        fullName: user.fullName,
-      });
-
-      await this.router.navigate(['/billing/plans']);
       return true;
     } catch (error) {
       console.error(error);
-
-      if (error instanceof Error && error.message === 'Email already exists.') {
-        this.errorSignal.set('auth.emailAlreadyExists');
-        return false;
-      }
-
-      this.errorSignal.set('auth.signUpError');
+      this.store.setError('auth.signUpError');
       return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  private isValidEmail(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  }
-
-  private isAllowedEmailProvider(email: string): boolean {
-    return (
-      email.endsWith('@gmail.com') ||
-      email.endsWith('@outlook.com') ||
-      email.endsWith('@hotmail.com')
-    );
-  }
-
-  async recoverPassword(payload: RecoverPasswordCommand): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async restoreSession(): Promise<boolean> {
+    this.store.setLoading(true);
+    this.authSession.setLoading(true);
 
     try {
-      if (!this.isValidEmail(payload.email)) {
-        this.errorSignal.set('auth.invalidEmail');
+      const storedSession = this.authSession.restoreStoredSession();
+
+      if (!storedSession) {
+        return false;
+      }
+
+      const response = await firstValueFrom(this.authApi.me());
+      const user = this.userAssembler.toEntity(response);
+
+      this.setAuthenticatedUser(user, storedSession.token);
+      return true;
+    } catch {
+      this.store.setCurrentUser(null);
+      this.authSession.clearSession();
+      return false;
+    } finally {
+      this.store.setLoading(false);
+      this.authSession.setLoading(false);
+    }
+  }
+
+  async signOut(): Promise<void> {
+    this.store.setLoading(true);
+
+    try {
+      await firstValueFrom(this.authApi.signOut());
+    } catch (error) {
+      console.error(error);
+    } finally {
+      this.store.reset();
+      this.authSession.clearSession();
+      await this.router.navigateByUrl(ROUTE_PATHS.IAM.LOGIN);
+    }
+  }
+
+  async recoverPassword(command: RecoverPasswordCommand): Promise<boolean> {
+    this.startRequest();
+
+    try {
+      if (!this.isValidEmail(command.email)) {
+        this.store.setError('auth.invalidEmail');
         return false;
       }
 
       await firstValueFrom(
-        this.authApi.recoverPassword(payload.email.trim().toLowerCase())
+        this.authApi.recoverPassword(command.email.trim().toLowerCase())
       );
 
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('auth.recoverPasswordError');
+      this.store.setError('auth.recoverPasswordError');
       return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async updateProfile(payload: UpdateProfileCommand): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async updateProfile(command: UpdateProfileCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      const currentUser = this.currentUserSignal();
+      const currentUser = this.store.currentUser();
 
       if (!currentUser) {
-        this.errorSignal.set('auth.signInError');
+        this.store.setError('auth.signInError');
         return false;
       }
 
-      const fullName = payload.fullName.trim();
-      const email = payload.email.trim().toLowerCase();
-
-      if (!fullName) {
-        this.errorSignal.set('auth.fullNameRequired');
+      if (!command.fullName.trim()) {
+        this.store.setError('auth.fullNameRequired');
         return false;
       }
 
-      if (!this.isValidEmail(email)) {
-        this.errorSignal.set('auth.invalidEmail');
+      if (!this.isValidEmail(command.email)) {
+        this.store.setError('auth.invalidEmail');
         return false;
       }
 
       const response = await firstValueFrom(
         this.usersApi.updateCurrentProfile({
-          fullName,
-          email,
-          status: currentUser.status,
+          fullName: command.fullName.trim(),
+          email: command.email.trim().toLowerCase(),
+          accessProfileId: currentUser.accessProfileId,
         })
       );
 
       const updatedUser = this.userAssembler.toEntity(response);
-      this.currentUserSignal.set(updatedUser);
+      const token = this.authSession.token();
 
-      this.authSession.startSession({
-        id: updatedUser.id,
-        email: updatedUser.email,
-        fullName: updatedUser.fullName,
-      });
+      if (!token) {
+        this.store.setError('auth.signInError');
+        return false;
+      }
+
+      this.setAuthenticatedUser(updatedUser, token);
 
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('auth.profileUpdateError');
+      this.store.setError('auth.profileUpdateError');
       return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async deleteAccount(payload: DeleteAccountCommand): Promise<boolean> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async deleteAccount(command: DeleteAccountCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      if (!this.currentUserSignal()) {
-        this.errorSignal.set('auth.signInError');
+      const currentUser = this.store.currentUser();
+
+      if (!currentUser) {
+        this.store.setError('auth.signInError');
         return false;
       }
 
-      if (payload.confirmation !== 'ELIMINAR') {
-        this.errorSignal.set('auth.deleteAccountConfirmationError');
+      if (command.confirmation !== 'ELIMINAR') {
+        this.store.setError('auth.deleteAccountConfirmationError');
         return false;
       }
 
       await firstValueFrom(this.usersApi.deleteCurrentAccount());
 
-      this.currentUserSignal.set(null);
-      this.accessProfilesSignal.set([]);
-      this.authSession.closeSession();
+      this.store.reset();
+      this.authSession.clearSession();
 
-      await this.router.navigate(['/iam/login']);
+      await this.router.navigateByUrl(ROUTE_PATHS.IAM.LOGIN);
 
       return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('auth.deleteAccountError');
+      this.store.setError('auth.deleteAccountError');
       return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async restoreSession(): Promise<void> {
-    const email = this.authSession.userEmail();
-
-    if (!email) return;
-
-    try {
-      const response = await this.iamApi.restoreSession(email);
-
-      if (!response) {
-        this.signOut();
-        return;
-      }
-
-      this.currentUserSignal.set(this.userAssembler.toEntity(response.user));
-
-      this.accessProfilesSignal.set(
-        response.accessProfiles.map((profile) =>
-          this.accessProfileAssembler.toEntity(profile)
-        )
-      );
-    } catch (error) {
-      console.error(error);
-      this.signOut();
-    }
+  clearMessages(): void {
+    this.store.clearMessages();
   }
 
-  signOut(): void {
-    this.currentUserSignal.set(null);
-    this.accessProfilesSignal.set([]);
-    this.authSession.closeSession();
+  private setAuthenticatedUser(user: User, token: string): void {
+    this.store.setCurrentUser(user);
+
+    const session: AuthenticatedUserSession = {
+      id: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      token,
+      accessProfileId: user.accessProfileId,
+      accessProfileName: user.accessProfileName,
+    };
+
+    this.authSession.setCurrentUser(session);
+  }
+
+  private startRequest(): void {
+    this.store.setLoading(true);
+    this.store.clearMessages();
+  }
+
+  private finishRequest(): void {
+    this.store.setLoading(false);
+  }
+
+  private isValidEmail(email: string): boolean {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  }
+
+  private isAllowedEmailProvider(email: string): boolean {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    return (
+      normalizedEmail.endsWith('@gmail.com') ||
+      normalizedEmail.endsWith('@outlook.com') ||
+      normalizedEmail.endsWith('@hotmail.com')
+    );
   }
 }

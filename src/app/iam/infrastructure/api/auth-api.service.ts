@@ -7,6 +7,7 @@ import { API_BASE_URL } from '../../../shared/infrastructure/api/api-config';
 import { SignInResource } from '../resources/sign-in.resource';
 import { SignUpResource } from '../resources/sign-up.resource';
 import { AuthResponse } from '../responses/auth.response';
+import { UserResponse } from '../responses/user.response';
 
 @Injectable({
   providedIn: 'root',
@@ -22,6 +23,14 @@ export class AuthApiService {
 
   signUp(resource: SignUpResource): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.authUrl}/sign-up`, resource);
+  }
+
+  signOut(): Observable<void> {
+    return this.http.post<void>(`${this.authUrl}/sign-out`, {});
+  }
+
+  me(): Observable<UserResponse> {
+    return this.http.get<UserResponse>(`${this.authUrl}/me`);
   }
 
   recoverPassword(email: string): Observable<void> {
