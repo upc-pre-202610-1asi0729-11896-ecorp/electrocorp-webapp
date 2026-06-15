@@ -6,6 +6,7 @@ import { AuthSessionService } from '../../../shared/application/services/auth-se
 import { Plan, PlanCode } from '../../domain/model/plan.entity';
 import { Subscription } from '../../domain/model/subscription.entity';
 
+import { PaymentFormCommand } from '../commands/payment-form.command';
 import { SubscribeDto } from '../dtos/subscribe.dto';
 import { CancelSubscriptionDto } from '../dtos/cancel-subscription.dto';
 import { ProcessPaymentDto } from '../dtos/process-payment.dto';
@@ -19,6 +20,7 @@ import { SubscriptionAssembler } from '../../infrastructure/assemblers/subscript
 import { PaymentAssembler } from '../../infrastructure/assemblers/payment.assembler';
 
 import { SubscriptionPolicyService } from '../../domain/services/subscription-policy.service';
+import { PaymentValidationService } from '../../domain/services/payment-validation.service';
 import { Payment } from '../../domain/model/payment.entity';
 
 @Injectable({
@@ -63,6 +65,7 @@ export class BillingFacade {
     private readonly subscriptionsApi: SubscriptionsApiService,
     private readonly paymentsApi: PaymentsApiService,
     private readonly subscriptionPolicyService: SubscriptionPolicyService,
+    private readonly paymentValidationService: PaymentValidationService,
     private readonly authSession: AuthSessionService
   ) {}
 
@@ -142,6 +145,57 @@ export class BillingFacade {
 
     this.lastPaymentSignal.set(this.paymentAssembler.toEntity(response));
     return true;
+  }
+
+  async processPaymentAndSubscribe(command: PaymentFormCommand): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      if (!this.paymentValidationService.isValidHolderName(command.holderName)) {
+        this.errorSignal.set('billing.invalidHolderName');
+        return false;
+      }
+
+      if (!this.paymentValidationService.isValidCardNumber(command.cardNumber)) {
+        this.errorSignal.set('billing.invalidCardNumber');
+        return false;
+      }
+
+      if (!this.paymentValidationService.isValidExpirationDate(command.expirationDate)) {
+        this.errorSignal.set('billing.invalidExpirationDate');
+        return false;
+      }
+
+      if (!this.paymentValidationService.isValidCvv(command.cvv)) {
+        this.errorSignal.set('billing.invalidCvv');
+        return false;
+      }
+
+      const response = await firstValueFrom(
+        this.subscriptionsApi.checkout({
+          planCode: command.planCode,
+          holderName: command.holderName.trim(),
+          cardNumber: command.cardNumber,
+          expirationDate: command.expirationDate,
+          cvv: command.cvv,
+        })
+      );
+
+      this.activeSubscriptionSignal.set(
+        this.subscriptionAssembler.toEntity(response)
+      );
+
+      await this.loadLastPayment();
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('billing.subscribeError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
   }
 
   async subscribe(payload: SubscribeDto): Promise<void> {
