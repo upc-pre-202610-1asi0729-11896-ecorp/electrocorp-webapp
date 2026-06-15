@@ -7,12 +7,10 @@ import {
 export interface MaintenanceTicketResource extends BaseResource {
   userId?: number;
   deviceId: number;
-  deviceName?: string;
-  type?: MaintenanceTicketType;
-  title?: string;
+  deviceName: string;
+  type: MaintenanceTicketType;
   description: string;
+  scheduledDate: string;
   status: MaintenanceTicketStatus;
-  scheduledAt?: string;
-  scheduledDate?: string;
-  createdAt?: string;
+  createdAt: string;
 }
