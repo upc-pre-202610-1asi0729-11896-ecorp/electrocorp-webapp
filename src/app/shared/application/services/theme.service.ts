@@ -1,19 +1,23 @@
-import { Injectable } from '@angular/core';
+import { Injectable, computed, inject } from '@angular/core';
+
+import { AppTheme, UiPreferencesService } from './ui-preferences.service';
+
+export type { AppTheme };
 
 @Injectable({
   providedIn: 'root',
 })
 export class ThemeService {
-  applyTheme(isDarkMode: boolean): void {
-    const root = document.documentElement;
+  private readonly uiPreferences = inject(UiPreferencesService);
 
-    if (isDarkMode) {
-      root.classList.add('dark-theme');
-      root.classList.remove('light-theme');
-      return;
-    }
+  readonly currentTheme = computed<AppTheme>(() => this.uiPreferences.isDarkMode() ? 'dark' : 'light');
+  readonly isDarkMode = computed(() => this.uiPreferences.isDarkMode());
 
-    root.classList.add('light-theme');
-    root.classList.remove('dark-theme');
+  toggleTheme(): void {
+    this.uiPreferences.toggleTheme();
+  }
+
+  setTheme(theme: AppTheme): void {
+    this.uiPreferences.setTheme(theme);
   }
 }
