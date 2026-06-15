@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 import { API_BASE_URL } from '../../../shared/infrastructure/api/api-config';
 
 import { SignInResource } from '../resources/sign-in.resource';
+import { SignUpResource } from '../resources/sign-up.resource';
 import { AuthResponse } from '../responses/auth.response';
 
 @Injectable({
@@ -17,5 +18,9 @@ export class AuthApiService {
 
   signIn(resource: SignInResource): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.authUrl}/sign-in`, resource);
+  }
+
+  signUp(resource: SignUpResource): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.authUrl}/sign-up`, resource);
   }
 }
