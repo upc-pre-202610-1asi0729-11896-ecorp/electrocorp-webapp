@@ -31,7 +31,7 @@ export class SubscriptionsApiService extends BaseApiService<
     return this.http.patch<SubscriptionResponse>(
       `${this.apiBaseUrl}/subscriptions/${subscriptionId}`,
       {
-        status: 'CANCELED',
+        status: 'CANCELLED',
         endsAt: new Date().toISOString().slice(0, 10),
       }
     );
