@@ -17,7 +17,16 @@ export class EnergyGoalAssembler extends BaseAssembler<
       currentWatts: response.currentWatts,
       startDate: response.startDate,
       endDate: response.endDate,
+      targetKilowattHours: response.targetKilowattHours,
+      currentKilowattHours: response.currentKilowattHours,
+      deadline: response.deadline,
       status: response.status,
+      createdAt: response.createdAt,
+      scopeType: response.scopeType,
+      scopeId: response.scopeId,
+      scopeName: response.scopeName,
+      activeFrom: response.activeFrom,
+      activeTo: response.activeTo,
     });
   }
 
@@ -29,7 +38,16 @@ export class EnergyGoalAssembler extends BaseAssembler<
       currentWatts: entity.currentWatts,
       startDate: entity.startDate,
       endDate: entity.endDate,
+      targetKilowattHours: entity.targetKilowattHours,
+      currentKilowattHours: entity.currentKilowattHours,
+      deadline: entity.deadline,
       status: entity.status,
+      createdAt: entity.createdAt,
+      scopeType: entity.scopeType,
+      scopeId: entity.scopeId,
+      scopeName: entity.scopeName,
+      activeFrom: entity.activeFrom,
+      activeTo: entity.activeTo,
     };
   }
 }
