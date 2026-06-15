@@ -31,6 +31,15 @@ export const DEVICE_CONTROL_ROUTES: Routes = [
       ),
   },
   {
+    path: 'operation/modes',
+    canActivate: [activeSubscriptionGuard],
+    data: { title: 'Modos' },
+    loadComponent: () =>
+      import('../pages/operation-modes/operation-modes-page.component').then(
+        (m) => m.OperationModesPageComponent
+      ),
+  },
+  {
     path: 'operation',
     redirectTo: 'operation/devices',
     pathMatch: 'full',
@@ -48,6 +57,11 @@ export const DEVICE_CONTROL_ROUTES: Routes = [
   {
     path: 'routines',
     redirectTo: 'operation/routines',
+    pathMatch: 'full',
+  },
+  {
+    path: 'operation-modes',
+    redirectTo: 'operation/modes',
     pathMatch: 'full',
   },
 ];
