@@ -1,8 +1,8 @@
 import { DeviceType } from '../../domain/model/device.entity';
 
-export interface CreateDeviceDto {
+export interface CreateDeviceCommand {
   name: string;
-  room: string;
+  room?: string | null;
   type: DeviceType;
   powerWatts: number;
 }
