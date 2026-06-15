@@ -1,51 +1,54 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
-import { TranslatePipe } from '@ngx-translate/core';
+import { DecimalPipe } from '@angular/common';
+import { TranslateModule } from '@ngx-translate/core';
 
 import { Plan, PlanCode } from '../../../domain/model/plan.entity';
+import { AppButtonComponent } from '../../../../shared/presentation/components/app-button/app-button.component';
 
 @Component({
   selector: 'app-plan-card',
   standalone: true,
-  imports: [TranslatePipe],
+  imports: [TranslateModule, DecimalPipe, AppButtonComponent],
   templateUrl: './plan-card.component.html',
   styleUrls: ['./plan-card.component.scss'],
 })
 export class PlanCardComponent {
   @Input({ required: true }) plan!: Plan;
-  @Input() loading = false;
-  @Input() isCurrentPlan = false;
+  @Input() activePlanCode: PlanCode | null = null;
 
-  @Output() subscribe = new EventEmitter<Plan>();
+  @Output() selected = new EventEmitter<Plan>();
 
-  onSubscribe(): void {
-    this.subscribe.emit(this.plan);
+  private readonly featureKeysByPlan: Record<PlanCode, string[]> = {
+    STARTER: ['devices', 'dashboard', 'alerts'],
+    PROFESSIONAL: ['devices', 'analytics', 'routines', 'reports'],
+    ENTERPRISE: ['locations', 'accessProfiles', 'alerts', 'support'],
+  };
+
+  get isSelected(): boolean {
+    return this.activePlanCode === this.plan.code;
   }
 
-  getDescriptionKey(planCode: PlanCode): string {
-    return `billing.planDescriptions.${planCode}`;
+  get isRecommended(): boolean {
+    return this.plan.code === 'PROFESSIONAL';
   }
 
-  getFeatureKeys(planCode: PlanCode): string[] {
-    const features: Record<PlanCode, string[]> = {
-      STARTER: [
-        'billing.planFeatures.STARTER.devices',
-        'billing.planFeatures.STARTER.dashboard',
-        'billing.planFeatures.STARTER.alerts',
-      ],
-      PROFESSIONAL: [
-        'billing.planFeatures.PROFESSIONAL.devices',
-        'billing.planFeatures.PROFESSIONAL.analytics',
-        'billing.planFeatures.PROFESSIONAL.routines',
-        'billing.planFeatures.PROFESSIONAL.reports',
-      ],
-      ENTERPRISE: [
-        'billing.planFeatures.ENTERPRISE.locations',
-        'billing.planFeatures.ENTERPRISE.accessProfiles',
-        'billing.planFeatures.ENTERPRISE.alerts',
-        'billing.planFeatures.ENTERPRISE.support',
-      ],
-    };
+  get descriptionKey(): string {
+    return `billing.planDescriptions.${this.plan.code}`;
+  }
 
-    return features[planCode];
+  get featureKeys(): string[] {
+    return this.featureKeysByPlan[this.plan.code].map(
+      (feature) => `billing.planFeatures.${this.plan.code}.${feature}`
+    );
+  }
+
+  get usageKey(): string {
+    return `billing.planUsage.${this.plan.code}`;
+  }
+
+  onSelect(): void {
+    if (!this.isSelected) {
+      this.selected.emit(this.plan);
+    }
   }
 }
