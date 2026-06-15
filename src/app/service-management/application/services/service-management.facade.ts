@@ -5,6 +5,7 @@ import { AuthSessionService } from '../../../shared/application/services/auth-se
 
 import { CreateMaintenanceTicketCommand } from '../commands/create-maintenance-ticket.command';
 import { CreateSupportTicketCommand } from '../commands/create-support-ticket.command';
+import { UpdateMaintenanceTicketStatusCommand } from '../commands/update-maintenance-ticket-status.command';
 import { UpdateSupportTicketStatusCommand } from '../commands/update-support-ticket-status.command';
 import { CreateSupportTicketDto } from '../dtos/create-support-ticket.dto';
 import { CreateMaintenanceTicketDto } from '../dtos/create-maintenance-ticket.dto';
@@ -287,6 +288,52 @@ export class ServiceManagementFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('serviceManagement.createMaintenanceError');
+      return false;
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async updateMaintenanceTicketStatus(
+    command: UpdateMaintenanceTicketStatusCommand
+  ): Promise<boolean> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      const existingTicket = this.maintenanceTicketsSignal().find(
+        (ticket) => ticket.id === command.ticketId
+      );
+      const response = await firstValueFrom(
+        this.maintenanceTicketsApi.updateStatus(command.ticketId, {
+          userId: existingTicket?.userId ?? this.getCurrentUserId(),
+          deviceId: existingTicket?.deviceId ?? 0,
+          deviceName: existingTicket?.deviceName ?? '',
+          type: existingTicket?.type ?? 'INSPECTION',
+          title: existingTicket?.title ?? '',
+          description: existingTicket?.description ?? '',
+          scheduledAt:
+            existingTicket?.scheduledAt ?? new Date().toISOString().slice(0, 10),
+          scheduledDate:
+            existingTicket?.scheduledDate ??
+            new Date().toISOString().slice(0, 10),
+          status: command.status,
+          createdAt:
+            existingTicket?.createdAt ?? new Date().toISOString().slice(0, 10),
+        })
+      );
+
+      const updatedTicket = this.maintenanceTicketAssembler.toEntity(response);
+      this.maintenanceTicketsSignal.update((tickets) =>
+        tickets.map((ticket) =>
+          ticket.id === updatedTicket.id ? updatedTicket : ticket
+        )
+      );
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('serviceManagement.updateMaintenanceStatusError');
       return false;
     } finally {
       this.loadingSignal.set(false);
