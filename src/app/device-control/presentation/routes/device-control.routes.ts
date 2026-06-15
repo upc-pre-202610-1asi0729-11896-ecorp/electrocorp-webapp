@@ -22,6 +22,15 @@ export const DEVICE_CONTROL_ROUTES: Routes = [
       ),
   },
   {
+    path: 'operation/routines',
+    canActivate: [activeSubscriptionGuard],
+    data: { title: 'Rutinas' },
+    loadComponent: () =>
+      import('../pages/routines/routines-page.component').then(
+        (m) => m.RoutinesPageComponent
+      ),
+  },
+  {
     path: 'operation',
     redirectTo: 'operation/devices',
     pathMatch: 'full',
@@ -34,6 +43,11 @@ export const DEVICE_CONTROL_ROUTES: Routes = [
   {
     path: 'device-groups',
     redirectTo: 'operation/groups',
+    pathMatch: 'full',
+  },
+  {
+    path: 'routines',
+    redirectTo: 'operation/routines',
     pathMatch: 'full',
   },
 ];

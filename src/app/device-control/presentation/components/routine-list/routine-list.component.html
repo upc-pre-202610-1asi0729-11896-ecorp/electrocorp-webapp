@@ -1,44 +1,59 @@
-@if (routines.length > 0) {
+@if (routines.length === 0) {
+  <div class="empty-routines">
+    {{ 'routines.list.empty' | translate }}
+  </div>
+} @else {
   <section class="routine-list">
     @for (routine of routines; track routine.id) {
-      <article class="routine-card">
-        <div>
-          <p class="routine-action">{{ routine.action }}</p>
-          <h3>{{ routine.name }}</h3>
-          <span>
-            {{ getDeviceName(routine.deviceId) }} · {{ routine.scheduledTime }}
-          </span>
+      <article class="routine-item">
+        <div class="routine-item__icon">
+          {{ getTargetIcon(routine) }}
         </div>
 
-        <div class="routine-side">
-          <span class="status" [class.active]="routine.enabled">
-            @if (routine.enabled) {
-              {{ 'routines.active' | translate }}
-            } @else {
-              {{ 'routines.inactive' | translate }}
-            }
-          </span>
+        <div class="routine-item__content">
+          <div class="routine-item__top">
+            <h3>{{ routine.name }}</h3>
 
-          <div class="actions">
-            <button type="button" class="toggle-btn" (click)="toggle.emit(routine.id)">
-              @if (routine.enabled) {
-                {{ 'routines.disable' | translate }}
-              } @else {
-                {{ 'routines.enable' | translate }}
-              }
-            </button>
-
-            <button type="button" class="remove-btn" (click)="remove.emit(routine.id)">
-              {{ 'common.delete' | translate }}
-            </button>
+            <span class="routine-status" [class.enabled]="routine.enabled">
+              {{ getStatusLabelKey(routine) | translate }}
+            </span>
           </div>
+
+          <p>
+            {{ getActionLabelKey(routine) | translate }}
+            <strong>{{ getTargetTypeLabelKey(routine) | translate }}</strong>
+          </p>
+
+          <div class="routine-item__meta">
+            <span>
+              {{ getTargetTypeLabelKey(routine) | translate }}:
+              {{ getTargetName(routine) }}
+            </span>
+
+            <span>
+              {{ 'routines.card.time' | translate }}: {{ routine.time }}
+            </span>
+          </div>
+        </div>
+
+        <div class="routine-item__actions">
+          <app-button
+            class="routine-action"
+            variant="action"
+            (pressed)="onToggle(routine)"
+          >
+            {{ getToggleLabelKey(routine) | translate }}
+          </app-button>
+
+          <app-button
+            class="routine-action"
+            variant="danger"
+            (pressed)="onRemove(routine.id)"
+          >
+            {{ 'common.delete' | translate }}
+          </app-button>
         </div>
       </article>
     }
   </section>
-} @else {
-  <article class="empty-state">
-    <h3>{{ 'routines.emptyTitle' | translate }}</h3>
-    <p>{{ 'routines.emptyContent' | translate }}</p>
-  </article>
 }
