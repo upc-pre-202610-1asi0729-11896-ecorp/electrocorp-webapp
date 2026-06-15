@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 import { SignInCommand } from '../commands/sign-in.command';
-import { SignUpDto } from '../dtos/sign-up.dto';
+import { SignUpCommand } from '../commands/sign-up.command';
 import { User } from '../../domain/model/user.entity';
 import { AccessProfile } from '../../domain/model/access-profile.entity';
 import { AuthApiService } from '../../infrastructure/api/auth-api.service';
