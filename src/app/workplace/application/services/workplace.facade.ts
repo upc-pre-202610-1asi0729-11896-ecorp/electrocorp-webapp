@@ -8,6 +8,7 @@ import { UpdateLocationCommand } from '../commands/update-location.command';
 import { CreateRoomCommand } from '../commands/create-room.command';
 import { UpdateRoomCommand } from '../commands/update-room.command';
 import { AssignDeviceCommand } from '../commands/assign-device.command';
+import { MoveDeviceAssignmentCommand } from '../commands/move-device-assignment.command';
 
 import { Location } from '../../domain/model/location.entity';
 import { Room } from '../../domain/model/room.entity';
@@ -240,6 +241,27 @@ export class WorkplaceFacade {
     } catch (error) {
       console.error(error);
       this.errorSignal.set('workplace.assignDeviceError');
+    } finally {
+      this.loadingSignal.set(false);
+    }
+  }
+
+  async moveDeviceAssignment(payload: MoveDeviceAssignmentCommand): Promise<void> {
+    this.loadingSignal.set(true);
+    this.errorSignal.set(null);
+
+    try {
+      await firstValueFrom(
+        this.deviceAssignmentsApi.update(payload.assignmentId, {
+          locationId: payload.locationId,
+          roomId: payload.roomId ?? null,
+        })
+      );
+
+      await this.loadAssignments();
+    } catch (error) {
+      console.error(error);
+      this.errorSignal.set('workplace.moveDeviceAssignmentError');
     } finally {
       this.loadingSignal.set(false);
     }
