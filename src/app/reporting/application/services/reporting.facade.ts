@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
 
 import { CreateConsumptionReportCommand } from '../commands/create-consumption-report.command';
+import { CreateEnergyGoalCommand } from '../commands/create-energy-goal.command';
 import { ExportReportCommand } from '../commands/export-report.command';
 import { GenerateConsumptionReportCommand } from '../commands/generate-consumption-report.command';
 import { CreateEnergyGoalDto } from '../dtos/create-energy-goal.dto';
@@ -13,6 +14,7 @@ import {
   ConsumptionReportPeriod,
 } from '../../domain/model/consumption-report.entity';
 import { EnergyGoal } from '../../domain/model/energy-goal.entity';
+import { EnergyGoalPolicyService } from '../../domain/services/energy-goal-policy.service';
 import { ReportSummaryService } from '../../domain/services/report-summary.service';
 
 import { ConsumptionReportsApiService } from '../../infrastructure/api/consumption-reports-api.service';
@@ -45,6 +47,7 @@ export class ReportingFacade {
 
   readonly goalsSorted = computed(() => {
     const statusPriority: Record<string, number> = {
+      ACTIVE: 1,
       IN_PROGRESS: 1,
       COMPLETED: 2,
       FAILED: 3,
@@ -126,7 +129,7 @@ export class ReportingFacade {
   });
 
   readonly activeGoals = computed(() =>
-    this.goalsSignal().filter((goal) => goal.status === 'IN_PROGRESS')
+    this.goalsSignal().filter((goal) => goal.isActive)
   );
 
   readonly completedGoals = computed(() =>
@@ -160,7 +163,8 @@ export class ReportingFacade {
     private readonly energyGoalsApi: EnergyGoalsApiService,
     private readonly readingsApi: ReadingsApiService,
     private readonly authSession: AuthSessionService,
-    private readonly reportSummaryService: ReportSummaryService
+    private readonly reportSummaryService: ReportSummaryService,
+    private readonly energyGoalPolicyService: EnergyGoalPolicyService
   ) {}
 
   async loadReports(): Promise<void> {
@@ -390,14 +394,64 @@ export class ReportingFacade {
     return true;
   }
 
-  async createEnergyGoal(payload: CreateEnergyGoalDto): Promise<void> {
+  async createEnergyGoal(
+    payload: CreateEnergyGoalDto | CreateEnergyGoalCommand
+  ): Promise<boolean> {
     this.loadingSignal.set(true);
     this.errorSignal.set(null);
 
     try {
       const userId = this.getCurrentUserId();
+      const today = new Date().toISOString().slice(0, 10);
+
+      if (this.isCreateEnergyGoalCommand(payload)) {
+        const targetKilowattHours = Number(payload.targetKilowattHours);
+        const currentKilowattHours = 0;
+
+        if (
+          !this.energyGoalPolicyService.canCreateGoal(
+            payload.title,
+            targetKilowattHours,
+            payload.deadline
+          )
+        ) {
+          this.errorSignal.set('reporting.invalidGoal');
+          return false;
+        }
+
+        await firstValueFrom(
+          this.energyGoalsApi.create({
+            userId,
+            title: payload.title.trim(),
+            targetWatts: Math.round(targetKilowattHours * 1000),
+            currentWatts: 0,
+            startDate: payload.activeFrom ?? today,
+            endDate: payload.deadline,
+            targetKilowattHours,
+            currentKilowattHours,
+            deadline: payload.deadline,
+            status: this.energyGoalPolicyService.resolveStatus({
+              currentKilowattHours,
+              targetKilowattHours,
+              deadline: payload.deadline,
+            }),
+            createdAt: today,
+            scopeType: payload.scopeType ?? 'GENERAL',
+            scopeId: payload.scopeId ?? null,
+            scopeName: payload.scopeName ?? null,
+            activeFrom: payload.activeFrom ?? null,
+            activeTo: payload.activeTo ?? null,
+          })
+        );
+
+        await this.loadGoals();
+        return true;
+      }
+
       const targetWatts = Number(payload.targetWatts);
       const currentWatts = Number(payload.currentWatts);
+      const targetKilowattHours = targetWatts / 1000;
+      const currentKilowattHours = currentWatts / 1000;
 
       await firstValueFrom(
         this.energyGoalsApi.create({
@@ -407,14 +461,25 @@ export class ReportingFacade {
           currentWatts,
           startDate: payload.startDate,
           endDate: payload.endDate,
+          targetKilowattHours,
+          currentKilowattHours,
+          deadline: payload.endDate,
           status: currentWatts >= targetWatts ? 'COMPLETED' : 'IN_PROGRESS',
+          createdAt: payload.startDate,
+          scopeType: 'GENERAL',
+          scopeId: null,
+          scopeName: null,
+          activeFrom: payload.startDate,
+          activeTo: payload.endDate,
         })
       );
 
       await this.loadGoals();
+      return true;
     } catch (error) {
       console.error(error);
       this.errorSignal.set('reporting.createGoalError');
+      return false;
     } finally {
       this.loadingSignal.set(false);
     }
@@ -482,6 +547,12 @@ export class ReportingFacade {
     }
 
     return `"${rawValue.replace(/"/g, '""')}"`;
+  }
+
+  private isCreateEnergyGoalCommand(
+    payload: CreateEnergyGoalDto | CreateEnergyGoalCommand
+  ): payload is CreateEnergyGoalCommand {
+    return 'targetKilowattHours' in payload;
   }
 
   private getCurrentUserId(): number {
