@@ -18,4 +18,8 @@ export class UsersApiService {
   updateCurrentProfile(resource: UserResource): Observable<UserResponse> {
     return this.http.put<UserResponse>(`${this.usersUrl}/me`, resource);
   }
+
+  deleteCurrentAccount(): Observable<void> {
+    return this.http.delete<void>(`${this.usersUrl}/me`);
+  }
 }
