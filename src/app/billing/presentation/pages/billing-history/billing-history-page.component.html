@@ -69,6 +69,20 @@
                 }
               </dd>
             </div>
+            <div>
+              <dt>{{ 'settings.billing.cycleStarted' | translate }}</dt>
+              <dd>{{ formatDate(billingFacade.activeSubscription()?.startDate ?? undefined) }}</dd>
+            </div>
+            <div>
+              <dt>{{ 'settings.billing.nextBillingDate' | translate }}</dt>
+              <dd>{{ formatDate(billingFacade.activeSubscription()?.nextBillingDate ?? undefined) }}</dd>
+            </div>
+            @if (billingFacade.activeSubscription()?.endDate) {
+              <div>
+                <dt>{{ 'settings.billing.cycleEnded' | translate }}</dt>
+                <dd>{{ formatDate(billingFacade.activeSubscription()?.endDate ?? undefined) }}</dd>
+              </div>
+            }
           </dl>
 
           <div class="plan-actions">
