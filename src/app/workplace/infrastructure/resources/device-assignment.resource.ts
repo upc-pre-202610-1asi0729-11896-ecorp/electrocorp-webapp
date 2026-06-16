@@ -1,9 +1,9 @@
 import { BaseResource } from '../../../shared/infrastructure/resources/base.resource';
 
 export interface DeviceAssignmentResource extends BaseResource {
+  userId?: number;
   deviceId: number;
-  userId: number;
   locationId: number;
-  roomId: number | null;
+  roomId?: number | null;
   assignedAt: string;
 }

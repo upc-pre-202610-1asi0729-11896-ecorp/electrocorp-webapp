@@ -2,9 +2,9 @@ import { BaseResource } from '../../../shared/infrastructure/resources/base.reso
 import { LocationType } from '../../domain/model/location.entity';
 
 export interface LocationResource extends BaseResource {
+  userId?: number;
   name: string;
   address: string;
-  city: string;
-  country: string;
   type: LocationType;
+  createdAt: string;
 }

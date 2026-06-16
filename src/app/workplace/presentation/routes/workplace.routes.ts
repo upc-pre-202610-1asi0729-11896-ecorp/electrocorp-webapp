@@ -28,7 +28,7 @@ export const WORKPLACE_ROUTES: Routes = [
     loadComponent: () =>
       import(
         '../pages/device-assignments/device-assignments-page.component'
-      ).then((m) => m.DeviceAssignmentsPageComponent),
+        ).then((m) => m.DeviceAssignmentsPageComponent),
   },
   {
     path: 'workplace',

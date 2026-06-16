@@ -1,26 +1,24 @@
-import { computed, Injectable, signal } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
-import { AuthSessionService } from '../../../shared/application/services/auth-session.service';
+import { DeviceControlFacade } from '../../../device-control/application/services/device-control.facade';
 
-import { CreateLocationCommand } from '../commands/create-location.command';
-import { UpdateLocationCommand } from '../commands/update-location.command';
-import { CreateRoomCommand } from '../commands/create-room.command';
-import { UpdateRoomCommand } from '../commands/update-room.command';
 import { AssignDeviceCommand } from '../commands/assign-device.command';
+import { CreateLocationCommand } from '../commands/create-location.command';
+import { CreateRoomCommand } from '../commands/create-room.command';
 import { MoveDeviceAssignmentCommand } from '../commands/move-device-assignment.command';
+import { UpdateLocationCommand } from '../commands/update-location.command';
+import { UpdateRoomCommand } from '../commands/update-room.command';
 
-import { Location } from '../../domain/model/location.entity';
-import { Room } from '../../domain/model/room.entity';
-import { DeviceAssignment } from '../../domain/model/device-assignment.entity';
-
+import { DeviceAssignmentsApiService } from '../../infrastructure/api/device-assignments-api.service';
 import { LocationsApiService } from '../../infrastructure/api/locations-api.service';
 import { RoomsApiService } from '../../infrastructure/api/rooms-api.service';
-import { DeviceAssignmentsApiService } from '../../infrastructure/api/device-assignments-api.service';
 
+import { DeviceAssignmentAssembler } from '../../infrastructure/assemblers/device-assignment.assembler';
 import { LocationAssembler } from '../../infrastructure/assemblers/location.assembler';
 import { RoomAssembler } from '../../infrastructure/assemblers/room.assembler';
-import { DeviceAssignmentAssembler } from '../../infrastructure/assemblers/device-assignment.assembler';
+
+import { WorkplaceStore } from '../stores/workplace.store';
 
 @Injectable({
   providedIn: 'root',
@@ -30,290 +28,369 @@ export class WorkplaceFacade {
   private readonly roomAssembler = new RoomAssembler();
   private readonly deviceAssignmentAssembler = new DeviceAssignmentAssembler();
 
-  private readonly locationsSignal = signal<Location[]>([]);
-  private readonly roomsSignal = signal<Room[]>([]);
-  private readonly assignmentsSignal = signal<DeviceAssignment[]>([]);
-  private readonly loadingSignal = signal<boolean>(false);
-  private readonly errorSignal = signal<string | null>(null);
+  get locations() {
+    return this.store.locations;
+  }
 
-  readonly locations = computed(() => this.locationsSignal());
-  readonly rooms = computed(() => this.roomsSignal());
-  readonly assignments = computed(() => this.assignmentsSignal());
-  readonly loading = computed(() => this.loadingSignal());
-  readonly error = computed(() => this.errorSignal());
+  get rooms() {
+    return this.store.rooms;
+  }
 
-  readonly totalLocations = computed(() => this.locationsSignal().length);
-  readonly totalRooms = computed(() => this.roomsSignal().length);
-  readonly totalAssignments = computed(() => this.assignmentsSignal().length);
+  get deviceAssignments() {
+    return this.store.deviceAssignments;
+  }
 
-  readonly averageRoomsPerLocation = computed(() => {
-    const locations = this.totalLocations();
-    if (!locations) return 0;
-    return Number((this.totalRooms() / locations).toFixed(1));
-  });
+  get loading() {
+    return this.store.loading;
+  }
 
-  readonly locationCards = computed(() =>
-    [...this.locationsSignal()]
-      .map((location) => {
-        const rooms = this.roomsSignal().filter((room) => room.locationId === location.id);
-        const assignments = this.assignmentsSignal().filter(
-          (assignment) => assignment.locationId === location.id
-        );
+  get error() {
+    return this.store.error;
+  }
 
-        const floors = [...new Set(rooms.map((room) => room.floor))].sort((a, b) => a - b);
+  get businessLocations() {
+    return this.store.businessLocations;
+  }
 
-        return {
-          location,
-          rooms,
-          assignments,
-          roomCount: rooms.length,
-          assignmentCount: assignments.length,
-          floors,
-        };
-      })
-      .sort(
-        (a, b) =>
-          b.assignmentCount - a.assignmentCount || b.roomCount - a.roomCount
-      )
-  );
+  get branchLocations() {
+    return this.store.branchLocations;
+  }
 
-  readonly emptyLocations = computed(
-    () => this.locationCards().filter((card) => card.assignmentCount === 0).length
-  );
-
-  readonly assignmentCoverage = computed(() => {
-    const total = this.totalLocations();
-    if (!total) return 0;
-
-    const covered = this.locationCards().filter((card) => card.assignmentCount > 0).length;
-    return Math.round((covered / total) * 100);
-  });
-
-  readonly busiestLocation = computed(() => {
-    const cards = this.locationCards();
-    return cards.length ? cards[0] : null;
-  });
-
-  readonly typeBreakdown = computed(() => {
-    const counter = new Map<string, number>();
-
-    this.locationsSignal().forEach((location) => {
-      counter.set(location.type, (counter.get(location.type) ?? 0) + 1);
-    });
-
-    return Array.from(counter.entries()).map(([label, count]) => ({
-      label,
-      count,
-    }));
-  });
+  get homeLocations() {
+    return this.store.homeLocations;
+  }
 
   constructor(
     private readonly locationsApi: LocationsApiService,
     private readonly roomsApi: RoomsApiService,
     private readonly deviceAssignmentsApi: DeviceAssignmentsApiService,
-    private readonly authSession: AuthSessionService
+    private readonly deviceControlFacade: DeviceControlFacade,
+    private readonly store: WorkplaceStore
   ) {}
 
   async loadWorkplace(): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+    this.startRequest();
 
     try {
       await Promise.all([
         this.loadLocations(),
         this.loadRooms(),
-        this.loadAssignments(),
+        this.loadDeviceAssignments(),
+        this.deviceControlFacade.loadDeviceControl(),
       ]);
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('workplace.loadError');
+      this.store.setError('workplace.loadError');
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async createLocation(payload: CreateLocationCommand): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async loadLocations(): Promise<void> {
+    const responses = await firstValueFrom(
+      this.locationsApi.findAllForCurrentUser()
+    );
+
+    const locations = responses
+      .map((response) => this.locationAssembler.toEntity(response))
+      .sort(
+        (first, second) =>
+          new Date(second.createdAt).getTime() -
+          new Date(first.createdAt).getTime()
+      );
+
+    this.store.setLocations(locations);
+  }
+
+  async createLocation(command: CreateLocationCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      await firstValueFrom(
+      if (!command.name.trim() || !command.address.trim()) {
+        this.store.setError('workplace.locationCreateError');
+        return false;
+      }
+
+      const response = await firstValueFrom(
         this.locationsApi.create({
-          name: payload.name,
-          address: payload.address,
-          city: '',
-          country: '',
-          type: payload.type,
+          name: command.name.trim(),
+          address: command.address.trim(),
+          type: command.type,
+          createdAt: new Date().toISOString().slice(0, 10),
         })
       );
 
-      await this.loadLocations();
+      this.store.prependLocation(this.locationAssembler.toEntity(response));
+      return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('workplace.createLocationError');
+      this.store.setError('workplace.locationCreateError');
+      return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async updateLocation(payload: UpdateLocationCommand): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async updateLocation(command: UpdateLocationCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      await firstValueFrom(
-        this.locationsApi.update(payload.locationId, {
-          name: payload.name,
-          address: payload.address,
-          type: payload.type,
+      const response = await firstValueFrom(
+        this.locationsApi.patch(command.locationId, {
+          name: command.name.trim(),
+          address: command.address.trim(),
+          type: command.type,
         })
       );
 
-      await this.loadLocations();
+      this.store.updateLocation(this.locationAssembler.toEntity(response));
+      return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('workplace.updateLocationError');
+      this.store.setError('workplace.locationUpdateError');
+      return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async createRoom(payload: CreateRoomCommand): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async deleteLocation(locationId: number): Promise<boolean> {
+    this.startRequest();
 
     try {
-      await firstValueFrom(
+      await firstValueFrom(this.locationsApi.delete(locationId));
+      this.store.removeLocation(locationId);
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('workplace.locationDeleteError');
+      return false;
+    } finally {
+      this.finishRequest();
+    }
+  }
+
+  async loadRooms(): Promise<void> {
+    const responses = await firstValueFrom(
+      this.roomsApi.findAllForCurrentUser()
+    );
+
+    const rooms = responses
+      .map((response) => this.roomAssembler.toEntity(response))
+      .sort(
+        (first, second) =>
+          new Date(second.createdAt).getTime() -
+          new Date(first.createdAt).getTime()
+      );
+
+    this.store.setRooms(rooms);
+  }
+
+  async createRoom(command: CreateRoomCommand): Promise<boolean> {
+    this.startRequest();
+
+    try {
+      if (!command.name.trim() || !command.floor.trim()) {
+        this.store.setError('workplace.roomCreateError');
+        return false;
+      }
+
+      const response = await firstValueFrom(
         this.roomsApi.create({
-          locationId: payload.locationId,
-          name: payload.name,
-          floor: Number(payload.floor),
+          locationId: Number(command.locationId),
+          name: command.name.trim(),
+          floor: command.floor.trim(),
+          createdAt: new Date().toISOString().slice(0, 10),
         })
       );
 
-      await this.loadRooms();
+      this.store.prependRoom(this.roomAssembler.toEntity(response));
+      return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('workplace.createRoomError');
+      this.store.setError('workplace.roomCreateError');
+      return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async updateRoom(payload: UpdateRoomCommand): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async updateRoom(command: UpdateRoomCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      await firstValueFrom(
-        this.roomsApi.update(payload.roomId, {
-          locationId: payload.locationId,
-          name: payload.name,
-          floor: Number(payload.floor),
+      const response = await firstValueFrom(
+        this.roomsApi.patch(command.roomId, {
+          locationId: Number(command.locationId),
+          name: command.name.trim(),
+          floor: command.floor.trim(),
         })
       );
 
-      await this.loadRooms();
+      this.store.updateRoom(this.roomAssembler.toEntity(response));
+      return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('workplace.updateRoomError');
+      this.store.setError('workplace.roomUpdateError');
+      return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async assignDevice(payload: AssignDeviceCommand): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async deleteRoom(roomId: number): Promise<boolean> {
+    this.startRequest();
 
     try {
-      await firstValueFrom(
+      await firstValueFrom(this.roomsApi.delete(roomId));
+      await Promise.all([this.loadRooms(), this.loadDeviceAssignments()]);
+
+      const roomStillExists = this.store.rooms().some((room) => room.id === roomId);
+
+      if (roomStillExists) {
+        this.store.setError('workplace.roomDeleteError');
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('workplace.roomDeleteError');
+      return false;
+    } finally {
+      this.finishRequest();
+    }
+  }
+
+  async loadDeviceAssignments(): Promise<void> {
+    const responses = await firstValueFrom(
+      this.deviceAssignmentsApi.findAllForCurrentUser()
+    );
+
+    const assignments = responses
+      .map((response) => this.deviceAssignmentAssembler.toEntity(response))
+      .sort(
+        (first, second) =>
+          new Date(second.assignedAt).getTime() -
+          new Date(first.assignedAt).getTime()
+      );
+
+    this.store.setDeviceAssignments(assignments);
+  }
+
+  async assignDevice(command: AssignDeviceCommand): Promise<boolean> {
+    this.startRequest();
+
+    try {
+      const alreadyAssigned = this.store
+        .deviceAssignments()
+        .some((assignment) => assignment.deviceId === Number(command.deviceId));
+
+      if (alreadyAssigned) {
+        this.store.setError('workplace.deviceAlreadyAssigned');
+        return false;
+      }
+
+      const response = await firstValueFrom(
         this.deviceAssignmentsApi.create({
-          deviceId: payload.deviceId,
-          userId: this.getCurrentUserId(),
-          locationId: payload.locationId,
-          roomId: payload.roomId ?? null,
+          deviceId: Number(command.deviceId),
+          locationId: Number(command.locationId),
+          roomId: command.roomId ? Number(command.roomId) : null,
           assignedAt: new Date().toISOString().slice(0, 10),
         })
       );
 
-      await this.loadAssignments();
+      this.store.prependDeviceAssignment(
+        this.deviceAssignmentAssembler.toEntity(response)
+      );
+
+      return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('workplace.assignDeviceError');
+      this.store.setError('workplace.assignmentCreateError');
+      return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  async moveDeviceAssignment(payload: MoveDeviceAssignmentCommand): Promise<void> {
-    this.loadingSignal.set(true);
-    this.errorSignal.set(null);
+  async moveDeviceAssignment(command: MoveDeviceAssignmentCommand): Promise<boolean> {
+    this.startRequest();
 
     try {
-      await firstValueFrom(
-        this.deviceAssignmentsApi.update(payload.assignmentId, {
-          locationId: payload.locationId,
-          roomId: payload.roomId ?? null,
+      const response = await firstValueFrom(
+        this.deviceAssignmentsApi.patch(command.assignmentId, {
+          locationId: Number(command.locationId),
+          roomId: command.roomId ? Number(command.roomId) : null,
         })
       );
 
-      await this.loadAssignments();
+      this.store.updateDeviceAssignment(
+        this.deviceAssignmentAssembler.toEntity(response)
+      );
+
+      return true;
     } catch (error) {
       console.error(error);
-      this.errorSignal.set('workplace.moveDeviceAssignmentError');
+      this.store.setError('workplace.assignmentMoveError');
+      return false;
     } finally {
-      this.loadingSignal.set(false);
+      this.finishRequest();
     }
   }
 
-  private async loadLocations(): Promise<void> {
-    const responses = await firstValueFrom(this.locationsApi.findAll());
+  async deleteDeviceAssignment(assignmentId: number): Promise<boolean> {
+    this.startRequest();
 
-    this.locationsSignal.set(
-      responses.map((response) => this.locationAssembler.toEntity(response))
+    try {
+      await firstValueFrom(this.deviceAssignmentsApi.delete(assignmentId));
+      this.store.removeDeviceAssignment(assignmentId);
+      return true;
+    } catch (error) {
+      console.error(error);
+      this.store.setError('workplace.assignmentDeleteError');
+      return false;
+    } finally {
+      this.finishRequest();
+    }
+  }
+
+  getLocationName(locationId: number): string {
+    return (
+      this.store.locations().find((location) => location.id === locationId)
+        ?.name ?? `Location #${locationId}`
     );
   }
 
-  private async loadRooms(): Promise<void> {
-    const responses = await firstValueFrom(this.roomsApi.findAll());
-
-    this.roomsSignal.set(
-      responses.map((response) => this.roomAssembler.toEntity(response))
-    );
-  }
-
-  private async loadAssignments(): Promise<void> {
-    const userId = this.getCurrentUserId();
-
-    const responses = await firstValueFrom(
-      this.deviceAssignmentsApi.findByUserId(userId)
-    );
-
-    this.assignmentsSignal.set(
-      responses.map((response) =>
-        this.deviceAssignmentAssembler.toEntity(response)
-      )
-    );
-  }
-
-  getRoomsByLocationId(locationId: number): Room[] {
-    return this.roomsSignal().filter((room) => room.locationId === locationId);
-  }
-
-  getAssignmentsByLocationId(locationId: number): DeviceAssignment[] {
-    return this.assignmentsSignal().filter(
-      (assignment) => assignment.locationId === locationId
-    );
-  }
-
-  private getCurrentUserId(): number {
-    const userId = this.authSession.userId();
-
-    if (!userId) {
-      throw new Error('Authenticated user id was not found.');
+  getRoomName(roomId: number | null): string {
+    if (roomId === null) {
+      return 'Sin habitacion';
     }
 
-    return userId;
+    return (
+      this.store.rooms().find((room) => room.id === roomId)?.name ??
+      `Room #${roomId}`
+    );
+  }
+
+  getDeviceName(deviceId: number): string {
+    return this.deviceControlFacade.getDeviceName(deviceId);
+  }
+
+  getRoomsByLocation(locationId: number): ReturnType<WorkplaceStore['rooms']> {
+    return this.store.rooms().filter((room) => room.locationId === locationId);
+  }
+
+  clearMessages(): void {
+    this.store.clearMessages();
+  }
+
+  private startRequest(): void {
+    this.store.setLoading(true);
+    this.store.clearMessages();
+  }
+
+  private finishRequest(): void {
+    this.store.setLoading(false);
   }
 }
