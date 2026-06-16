@@ -1,32 +1,52 @@
-<article class="device-card">
-  <div class="device-header">
-    <div>
-      <p class="device-type">{{ device.type }}</p>
-      <h3>{{ device.name }}</h3>
-      <span>{{ device.room }}</span>
+<article
+  class="device-card"
+  [class.on]="device.isOn"
+  [class.removing]="removing"
+  [class.powering-on]="powerTransition === 'powering-on'"
+  [class.powering-off]="powerTransition === 'powering-off'"
+>
+  <div class="device-card__top">
+    <span class="device-card__icon" aria-hidden="true">{{ deviceIcon }}</span>
+
+    <div class="device-card__main">
+      <p class="type">{{ deviceTypeLabelKey | translate }}</p>
+      <h2 [title]="device.name">{{ device.name }}</h2>
+      <small>
+        {{ locationName || ('devices.activeSiteFallback' | translate) }} /
+        {{ device.room || ('devices.noRoom' | translate) }}
+      </small>
     </div>
 
-    <span class="status" [class.on]="device.status === 'ON'">
-      {{ device.status }}
+    <span class="status">
+      {{ statusLabelKey | translate }}
     </span>
   </div>
 
-  <div class="device-body">
-    <p>{{ 'devices.power' | translate }}</p>
-    <strong>{{ device.powerWatts }}W</strong>
+  <div class="device-card__power">
+    <div>
+      <span>{{ (device.isOn ? 'devices.card.activeConsumption' : 'devices.card.standby') | translate }}</span>
+      <p>{{ (device.isOn ? 'devices.card.currentConsumptionDescription' : 'devices.card.noActiveConsumption') | translate }}</p>
+    </div>
+
+    <strong>{{ device.isOn ? device.powerWatts : 0 }} W</strong>
   </div>
 
-  <div class="device-actions">
-    <button type="button" class="toggle-btn" (click)="onToggle()">
-      @if (device.status === 'ON') {
+  <div class="device-card__actions">
+    <app-button
+      variant="action"
+      size="sm"
+      (pressed)="onToggle()"
+      [disabled]="removing || !device.canReceiveOperationalChanges"
+    >
+      @if (device.isOn) {
         {{ 'devices.turnOff' | translate }}
       } @else {
         {{ 'devices.turnOn' | translate }}
       }
-    </button>
+    </app-button>
 
-    <button type="button" class="remove-btn" (click)="onRemove()">
+    <app-button variant="danger" size="sm" [disabled]="removing" (pressed)="onRemove()">
       {{ 'common.delete' | translate }}
-    </button>
+    </app-button>
   </div>
 </article>

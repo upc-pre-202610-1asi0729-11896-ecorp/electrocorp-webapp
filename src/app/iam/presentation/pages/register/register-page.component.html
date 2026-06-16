@@ -1,10 +1,14 @@
 <section class="auth-page">
   <article class="auth-card">
     <p class="eyebrow">{{ 'auth.registerEyebrow' | translate }}</p>
-    <h1>{{ 'auth.registerTitle' | translate }}</h1>
-    <p class="subtitle">{{ 'auth.registerSubtitle' | translate }}</p>
 
-    <form class="auth-form" (ngSubmit)="handleSubmit()">
+    <h1>{{ 'auth.registerTitle' | translate }}</h1>
+
+    <p class="subtitle">
+      {{ 'auth.registerSubtitle' | translate }}
+    </p>
+
+    <form class="auth-form" (ngSubmit)="onSubmit()">
       <label>
         {{ 'auth.fullName' | translate }}
         <input
@@ -13,7 +17,6 @@
           [(ngModel)]="fullName"
           autocomplete="name"
           required
-          placeholder="Jean Franck Loa Rojas"
         />
       </label>
 
@@ -25,7 +28,6 @@
           [(ngModel)]="email"
           autocomplete="email"
           required
-          placeholder="jean@example.com"
         />
       </label>
 
@@ -37,29 +39,35 @@
           [(ngModel)]="password"
           autocomplete="new-password"
           required
-          placeholder="123456"
         />
       </label>
 
-      @if (iamFacade.error()) {
-        <p class="error-message">
-          {{ iamFacade.error()! | translate }}
-        </p>
-      }
-
-      <div class="actions">
-        <button type="submit" class="primary-btn" [disabled]="iamFacade.loading()">
-          @if (iamFacade.loading()) {
-            {{ 'common.loading' | translate }}
-          } @else {
-            {{ 'auth.signUp' | translate }}
-          }
-        </button>
-
-        <a routerLink="/iam/login" class="secondary-btn">
-          {{ 'auth.backToLogin' | translate }}
-        </a>
+      <div class="password-rules">
+        @for (rule of passwordRequirements; track rule.label) {
+          <span [class.valid]="rule.valid">
+            {{ rule.valid ? '✓' : '•' }} {{ rule.label }}
+          </span>
+        }
       </div>
+
+      <app-button
+        type="submit"
+        variant="create"
+        [disabled]="iamFacade.loading() || !passwordIsValid"
+        [block]="true"
+      >
+        @if (iamFacade.loading()) {
+          {{ 'common.loading' | translate }}
+        } @else {
+          {{ 'auth.signUp' | translate }}
+        }
+      </app-button>
     </form>
+
+    <div class="links">
+      <a routerLink="/iam/login">
+        {{ 'auth.backToLogin' | translate }}
+      </a>
+    </div>
   </article>
 </section>

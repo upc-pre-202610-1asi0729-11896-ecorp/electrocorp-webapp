@@ -12,7 +12,6 @@ export class SubscriptionPolicyService {
     targetPlanCode: PlanCode
   ): boolean {
     if (!currentSubscription) return true;
-
     if (!currentSubscription.isActive) return true;
 
     return currentSubscription.planCode !== targetPlanCode;

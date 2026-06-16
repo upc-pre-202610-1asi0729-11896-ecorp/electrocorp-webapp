@@ -1,96 +1,155 @@
-<section class="page">
-  <article class="page-header">
+<section class="devices-page ec-page">
+  <header class="ec-page-heading">
+    <p class="ec-page-eyebrow">{{ 'nav.operation' | translate }}</p>
+    <h1 class="ec-page-title">{{ 'nav.devices' | translate }}</h1>
+    <p class="ec-page-description">
+      {{ 'devices.pageDescription' | translate }}
+    </p>
+  </header>
+
+  <section class="operation-summary">
+    <app-section-card
+      size="small"
+      [eyebrow]="'nav.devices' | translate"
+      [title]="'devices.summary.assignedTitle' | translate"
+    >
+      <strong>{{ assignedDevices.length }}</strong>
+      <p>{{ activeLocationName }}</p>
+    </app-section-card>
+
+    <app-section-card
+      size="small"
+      [eyebrow]="'history.status' | translate"
+      [title]="'devices.summary.onTitle' | translate"
+    >
+      <strong>{{ assignedActiveDevices.length }}</strong>
+      <p>{{ 'devices.summary.offDevices' | translate: { count: assignedDevices.length - assignedActiveDevices.length } }}</p>
+    </app-section-card>
+
+    <app-section-card
+      size="small"
+      [eyebrow]="'devices.summary.consumptionEyebrow' | translate"
+      [title]="'devices.summary.currentTitle' | translate"
+    >
+      <strong>{{ assignedCurrentWatts }} W</strong>
+      <p>{{ 'devices.summary.activePowerDescription' | translate }}</p>
+    </app-section-card>
+  </section>
+
+  <section class="operation-toolbar">
     <div>
-      <p class="eyebrow">{{ 'devices.eyebrow' | translate }}</p>
-      <h1>{{ 'devices.title' | translate }}</h1>
-      <p>{{ 'devices.subtitle' | translate }}</p>
+      <p class="section-eyebrow">{{ 'devices.toolbar.eyebrow' | translate }}</p>
+      <h2>{{ 'devices.toolbar.title' | translate }}</h2>
+      <p>{{ 'devices.toolbar.description' | translate }}</p>
     </div>
 
-    <div class="metrics">
-      <article>
-        <span>{{ 'devices.total' | translate }}</span>
-        <strong>{{ deviceControlFacade.totalDevices() }}</strong>
-      </article>
+    <app-button
+      variant="create"
+      [disabled]="activeRooms.length === 0"
+      (pressed)="openCreateModal()"
+    >
+      {{ 'devices.create' | translate }}
+    </app-button>
+  </section>
 
-      <article>
-        <span>{{ 'devices.active' | translate }}</span>
-        <strong>{{ deviceControlFacade.activeDevices() }}</strong>
-      </article>
-
-      <article>
-        <span>{{ 'devices.currentWatts' | translate }}</span>
-        <strong>{{ deviceControlFacade.totalCurrentWatts() }}W</strong>
-      </article>
+  @if (showInitialLoading) {
+    <div class="loading-wrapper">
+      <app-loading-spinner />
     </div>
-  </article>
+  } @else if (activeRooms.length === 0) {
+    <app-empty-state
+      [eyebrow]="'nav.rooms' | translate"
+      [title]="'devices.emptyRooms.title' | translate"
+      [description]="'devices.emptyRooms.description' | translate"
+      [actionLabel]="'devices.go' | translate"
+      actionLink="/spaces/rooms"
+    />
+  } @else if (assignedDevices.length > 0) {
+    <app-device-list
+      [devices]="assignedDevices"
+      [locationName]="activeLocationName"
+      [removingDeviceIds]="removingDeviceIds"
+      (toggle)="toggleDevice($event)"
+      (remove)="deleteDevice($event)"
+    />
+  } @else {
+    <app-empty-state
+      [eyebrow]="'nav.devices' | translate"
+      [title]="'devices.emptyAssigned.title' | translate"
+      [description]="'devices.emptyAssigned.description' | translate"
+      [actionLabel]="'devices.go' | translate"
+      actionLink="/spaces/assignments"
+      actionVariant="neutral"
+    />
+  }
 
-  <section class="content-grid">
-    <form class="form-card" (ngSubmit)="handleSubmit()">
-      <h2>{{ 'devices.addTitle' | translate }}</h2>
-
-      <label>
-        {{ 'devices.name' | translate }}
+  <app-modal-form-shell
+    [open]="createModalOpen"
+    [eyebrow]="'devices.form.eyebrow' | translate"
+    [title]="'devices.create' | translate"
+    [description]="'devices.form.description' | translate"
+    (closed)="closeCreateModal()"
+  >
+    <form class="modal-form" (ngSubmit)="createDevice()">
+      <label class="field">
+        <span>{{ 'devices.name' | translate }}</span>
         <input
           type="text"
           name="name"
           [(ngModel)]="name"
+          [placeholder]="'devices.form.namePlaceholder' | translate"
           required
-          placeholder="Smart plug"
         />
       </label>
 
-      <label>
-        {{ 'devices.room' | translate }}
-        <input
-          type="text"
-          name="room"
-          [(ngModel)]="room"
-          required
-          placeholder="Living room"
+      <label class="field">
+        <span>{{ 'devices.room' | translate }}</span>
+        <app-dropdown
+          [options]="roomOptions"
+          [value]="roomValue"
+          [placeholder]="'devices.room' | translate"
+          (valueChange)="selectRoom($event)"
         />
       </label>
 
-      <label>
-        {{ 'devices.type' | translate }}
-        <select name="type" [(ngModel)]="type" required>
-          @for (deviceType of deviceTypes; track deviceType) {
-            <option [value]="deviceType">{{ deviceType }}</option>
-          }
-        </select>
-      </label>
-
-      <label>
-        {{ 'devices.power' | translate }}
-        <input
-          type="number"
-          name="powerWatts"
-          [(ngModel)]="powerWatts"
-          required
-          min="1"
+      <label class="field">
+        <span>{{ 'devices.type' | translate }}</span>
+        <app-dropdown
+          [options]="deviceTypeOptions"
+          [value]="type"
+          [placeholder]="'devices.type' | translate"
+          (valueChange)="selectDeviceType($event)"
         />
       </label>
 
-      <button type="submit" [disabled]="deviceControlFacade.loading()">
-        @if (deviceControlFacade.loading()) {
-          {{ 'common.loading' | translate }}
-        } @else {
+      <div class="field">
+        <app-number-stepper
+          [label]="'devices.form.wattsLabel' | translate"
+          suffix="W"
+          [value]="powerWatts"
+          [min]="currentPowerConfig.min"
+          [max]="currentPowerConfig.max"
+          [step]="currentPowerConfig.step"
+          [allowEmpty]="false"
+          (valueChange)="onPowerWattsChange($event)"
+        />
+      </div>
+
+      <div class="power-advice" [class.high]="isHighPowerSelection">
+        <span>{{ powerAdviceTitle }}</span>
+        <p>{{ powerAdviceMessage }}</p>
+      </div>
+
+      <div class="form-actions">
+        <app-button variant="neutral" (pressed)="closeCreateModal()">{{ 'common.cancel' | translate }}</app-button>
+        <app-button
+          type="submit"
+          variant="create"
+          [disabled]="deviceControlFacade.loading() || activeRooms.length === 0"
+        >
           {{ 'devices.create' | translate }}
-        }
-      </button>
-
-      @if (deviceControlFacade.error()) {
-        <p class="error-message">
-          {{ deviceControlFacade.error()! | translate }}
-        </p>
-      }
+        </app-button>
+      </div>
     </form>
-
-    <section class="list-card">
-      <app-device-list
-        [devices]="deviceControlFacade.devices()"
-        (toggle)="deviceControlFacade.toggleDevice($event)"
-        (remove)="deviceControlFacade.removeDevice($event)"
-      />
-    </section>
-  </section>
+  </app-modal-form-shell>
 </section>

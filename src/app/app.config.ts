@@ -1,48 +1,48 @@
 import {
   ApplicationConfig,
-  importProvidersFrom,
-  provideZoneChangeDetection,
+  APP_INITIALIZER,
+  provideBrowserGlobalErrorListeners,
+  provideZonelessChangeDetection,
 } from '@angular/core';
 import { provideRouter } from '@angular/router';
-import { HttpClient, provideHttpClient } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 
-import {
-  TranslateLoader,
-  TranslateModule,
-  TranslationObject,
-} from '@ngx-translate/core';
-
-import { Observable } from 'rxjs';
+import { provideTranslateService } from '@ngx-translate/core';
+import { provideTranslateHttpLoader } from '@ngx-translate/http-loader';
 
 import { routes } from './app.routes';
-
-export class CustomTranslateLoader implements TranslateLoader {
-  constructor(private readonly http: HttpClient) {}
-
-  getTranslation(lang: string): Observable<TranslationObject> {
-    return this.http.get<TranslationObject>(`/assets/i18n/${lang}.json`);
-  }
-}
-
-export function translateLoaderFactory(http: HttpClient): TranslateLoader {
-  return new CustomTranslateLoader(http);
-}
+import { environment } from '../environments/environment';
+import { API_BASE_URL } from './shared/infrastructure/api/api-config';
+import { authInterceptor } from './shared/application/interceptors/auth.interceptor';
+import { IamFacade } from './iam/application/services/iam.facade';
+import { DEFAULT_LANGUAGE } from './shared/infrastructure/constants/app-language';
 
 export const appConfig: ApplicationConfig = {
   providers: [
-    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideBrowserGlobalErrorListeners(),
+    provideZonelessChangeDetection(),
     provideRouter(routes),
-    provideHttpClient(),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
 
-    importProvidersFrom(
-      TranslateModule.forRoot({
-        defaultLanguage: 'es',
-        loader: {
-          provide: TranslateLoader,
-          useFactory: translateLoaderFactory,
-          deps: [HttpClient],
-        },
-      })
-    ),
+    {
+      provide: APP_INITIALIZER,
+      multi: true,
+      deps: [IamFacade],
+      useFactory: (iamFacade: IamFacade) => () => iamFacade.restoreSession(),
+    },
+
+    {
+      provide: API_BASE_URL,
+      useValue: environment.apiBaseUrl,
+    },
+
+    provideTranslateService({
+      loader: provideTranslateHttpLoader({
+        prefix: '/assets/i18n/',
+        suffix: '.json',
+      }),
+      fallbackLang: DEFAULT_LANGUAGE,
+      lang: DEFAULT_LANGUAGE,
+    }),
   ],
 };
