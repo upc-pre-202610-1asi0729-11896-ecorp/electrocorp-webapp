@@ -1347,7 +1347,13 @@
         "iframeTitle": "Mapa de referencia do OpenStreetMap",
         "surfaceLabel": "Selecionar ponto no mapa",
         "selectedLabel": "Localizacao selecionada",
-        "selectedAddress": "Localizacao selecionada ({{coordinates}})"
+        "selectedAddress": "Localizacao selecionada ({{coordinates}})",
+        "searchingAddress": "Buscando enderecos...",
+        "zoomIn": "Aproximar",
+        "zoomOut": "Afastar",
+        "locateMe": "Usar minha localizacao",
+        "locationUnavailable": "A localizacao nao esta disponivel neste navegador.",
+        "locationDenied": "A permissao de localizacao foi negada ou nao pode ser resolvida."
       },
       "deleteTitle": "Excluir local",
       "deleteMessage": "Voce vai excluir {{name}}. Ambientes e atribuicoes associadas podem deixar de aparecer em Espacos.",
