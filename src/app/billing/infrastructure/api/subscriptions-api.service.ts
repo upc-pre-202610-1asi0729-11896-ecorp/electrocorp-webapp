@@ -1,7 +1,8 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+import { API_BASE_URL } from '../../../shared/infrastructure/api/api-config';
 import { BaseApiService } from '../../../shared/infrastructure/api/base-api.service';
 
 import { Subscription } from '../../domain/model/subscription.entity';
@@ -18,25 +19,28 @@ export class SubscriptionsApiService extends BaseApiService<
   SubscriptionResource,
   SubscriptionResponse
 > {
-  constructor(http: HttpClient) {
-    super(http, 'billing/subscriptions', new SubscriptionAssembler());
+  constructor(
+    http: HttpClient,
+    @Inject(API_BASE_URL) apiBaseUrl: string
+  ) {
+    super(http, apiBaseUrl, 'billing/subscriptions', new SubscriptionAssembler());
   }
 
   findCurrent(): Observable<SubscriptionResponse | null> {
     return this.http.get<SubscriptionResponse | null>(
-      `${this.apiBaseUrl}/${this.endpointPath}/current`
+      `${this.resourceEndpoint}/current`
     );
   }
 
   cancelCurrent(): Observable<void> {
     return this.http.delete<void>(
-      `${this.apiBaseUrl}/${this.endpointPath}/current`
+      `${this.resourceEndpoint}/current`
     );
   }
 
   checkout(resource: CheckoutSubscriptionResource): Observable<SubscriptionResponse> {
     return this.http.post<SubscriptionResponse>(
-      `${this.apiBaseUrl}/${this.endpointPath}/checkout`,
+      `${this.resourceEndpoint}/checkout`,
       resource
     );
   }
