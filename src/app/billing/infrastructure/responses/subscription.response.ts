@@ -7,4 +7,7 @@ export interface SubscriptionResponse extends BaseResponse<number> {
   planCode: PlanCode;
   status: SubscriptionStatus;
   active: boolean;
+  startDate?: string | null;
+  nextBillingDate?: string | null;
+  endDate?: string | null;
 }
