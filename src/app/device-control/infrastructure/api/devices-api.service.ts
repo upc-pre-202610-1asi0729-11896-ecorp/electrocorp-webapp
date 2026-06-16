@@ -1,12 +1,11 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+import { API_BASE_URL } from '../../../shared/infrastructure/api/api-config';
 import { BaseApiService } from '../../../shared/infrastructure/api/base-api.service';
-import {
-  Device,
-  DeviceStatus,
-} from '../../domain/model/device.entity';
+
+import { Device } from '../../domain/model/device.entity';
 import { DeviceAssembler } from '../assemblers/device.assembler';
 import { DeviceResource } from '../resources/device.resource';
 import { DeviceResponse } from '../responses/device.response';
@@ -19,16 +18,32 @@ export class DevicesApiService extends BaseApiService<
   DeviceResource,
   DeviceResponse
 > {
-  constructor(http: HttpClient) {
-    super(http, 'devices', new DeviceAssembler());
+  constructor(
+    http: HttpClient,
+    @Inject(API_BASE_URL) apiBaseUrl: string
+  ) {
+    super(http, apiBaseUrl, 'devices', new DeviceAssembler());
+  }
+
+  findAllForCurrentUser(): Observable<DeviceResponse[]> {
+    return this.http.get<DeviceResponse[]>(this.resourceEndpoint);
+  }
+
+  toggle(payload: {
+    deviceId: number;
+  }): Observable<DeviceResponse> {
+    return this.http.patch<DeviceResponse>(
+      `${this.resourceEndpoint}/${payload.deviceId}/toggle`,
+      {}
+    );
   }
 
   updateStatus(payload: {
     deviceId: number;
-    status: DeviceStatus;
+    status: string;
   }): Observable<DeviceResponse> {
     return this.http.patch<DeviceResponse>(
-      `${this.apiBaseUrl}/devices/${payload.deviceId}`,
+      `${this.resourceEndpoint}/${payload.deviceId}/status`,
       { status: payload.status }
     );
   }

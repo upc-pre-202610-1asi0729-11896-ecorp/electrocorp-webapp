@@ -1,5 +1,13 @@
-import { OperationMode } from '../../domain/model/operation-mode.entity';
-import { OperationModeResponse } from '../responses/operation-mode.response';
+import {
+  OperationMode,
+  OperationModeActivation,
+  OperationModePreview,
+} from '../../domain/model/operation-mode.entity';
+import {
+  OperationModeActivationResponse,
+  OperationModePreviewResponse,
+  OperationModeResponse,
+} from '../responses/operation-mode.response';
 
 export class OperationModeAssembler {
   toEntity(response: OperationModeResponse): OperationMode {
@@ -32,5 +40,16 @@ export class OperationModeAssembler {
       preserveCriticalSound: response.preserveCriticalSound ?? true,
       lastActivatedAt: response.lastActivatedAt ?? null,
     });
+  }
+
+  toPreview(response: OperationModePreviewResponse): OperationModePreview {
+    return response;
+  }
+
+  toActivation(response: OperationModeActivationResponse): OperationModeActivation {
+    return {
+      ...response,
+      mode: this.toEntity(response.mode),
+    };
   }
 }
