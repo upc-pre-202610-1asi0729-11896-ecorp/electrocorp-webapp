@@ -20,11 +20,11 @@ export class Routine extends BaseEntity<number> {
   private readonly _startsOn: string | null;
   private readonly _applicableDeviceCount: number;
   private readonly _blockedDeviceCount: number;
-  private _enabled: boolean;
+  private readonly _enabled: boolean;
 
   constructor(props: {
     id: number;
-    userId?: number | null;
+    userId: number;
     deviceId?: number | null;
     groupId?: number | null;
     targetType?: RoutineTargetType | null;
@@ -32,8 +32,7 @@ export class Routine extends BaseEntity<number> {
     targetName?: string | null;
     name: string;
     action: RoutineAction;
-    scheduledTime?: string | null;
-    time?: string | null;
+    time: string;
     repeatType?: RoutineRepeatType | null;
     daysOfWeek?: string | null;
     intervalDays?: number | null;
@@ -44,7 +43,7 @@ export class Routine extends BaseEntity<number> {
   }) {
     super(props.id);
 
-    this._userId = props.userId ?? 0;
+    this._userId = props.userId;
     this._deviceId = props.deviceId ?? null;
     this._groupId = props.groupId ?? null;
     this._targetType = props.targetType ?? (props.groupId ? 'GROUP' : 'DEVICE');
@@ -52,11 +51,10 @@ export class Routine extends BaseEntity<number> {
     this._targetName = props.targetName ?? '';
     this._name = props.name;
     this._action = props.action;
-    this._time = props.time ?? props.scheduledTime ?? '';
+    this._time = props.time;
     this._repeatType = props.repeatType ?? 'DAILY';
     this._daysOfWeek = props.daysOfWeek ?? '';
-    this._intervalDays =
-      props.intervalDays && props.intervalDays > 0 ? props.intervalDays : 1;
+    this._intervalDays = props.intervalDays && props.intervalDays > 0 ? props.intervalDays : 1;
     this._startsOn = props.startsOn ?? null;
     this._applicableDeviceCount = props.applicableDeviceCount ?? 0;
     this._blockedDeviceCount = props.blockedDeviceCount ?? 0;
@@ -67,8 +65,8 @@ export class Routine extends BaseEntity<number> {
     return this._userId;
   }
 
-  get deviceId(): number {
-    return this._deviceId ?? 0;
+  get deviceId(): number | null {
+    return this._deviceId;
   }
 
   get groupId(): number | null {
@@ -96,10 +94,6 @@ export class Routine extends BaseEntity<number> {
   }
 
   get time(): string {
-    return this._time;
-  }
-
-  get scheduledTime(): string {
     return this._time;
   }
 
@@ -135,7 +129,34 @@ export class Routine extends BaseEntity<number> {
     return this._targetType === 'GROUP';
   }
 
-  toggleEnabled(): void {
-    this._enabled = !this._enabled;
+  get actionLabel(): string {
+    return this._action === 'TURN_ON' ? 'Encender' : 'Apagar';
+  }
+
+  get targetTypeLabel(): string {
+    const labels: Record<RoutineTargetType, string> = {
+      DEVICE: 'Dispositivo',
+      GROUP: 'Grupo',
+      ROOM: 'Habitacion',
+      WORKPLACE: 'Sede',
+    };
+
+    return labels[this._targetType];
+  }
+
+  get repeatLabel(): string {
+    if (this._repeatType === 'ONCE') {
+      return this._startsOn ? `Una vez - ${this._startsOn}` : 'Una vez';
+    }
+
+    if (this._repeatType === 'WEEKLY') {
+      return this._daysOfWeek ? `Semanal - ${this._daysOfWeek}` : 'Semanal';
+    }
+
+    if (this._repeatType === 'CUSTOM_INTERVAL') {
+      return `Cada ${this._intervalDays} dia${this._intervalDays === 1 ? '' : 's'}`;
+    }
+
+    return 'Diario';
   }
 }

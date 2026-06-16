@@ -14,7 +14,6 @@ export interface RoutineResource extends BaseResource {
   name: string;
   action: RoutineAction;
   time: string;
-  scheduledTime?: string;
   repeatType?: RoutineRepeatType;
   daysOfWeek?: string | null;
   intervalDays?: number | null;

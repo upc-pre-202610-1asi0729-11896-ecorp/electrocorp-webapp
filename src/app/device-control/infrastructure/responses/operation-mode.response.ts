@@ -29,3 +29,35 @@ export interface OperationModeResponse {
   preserveCriticalSound: boolean;
   lastActivatedAt: string | null;
 }
+
+export interface OperationModePreviewResponse {
+  modeId: number;
+  locationId: number;
+  locationName: string;
+  affectedDeviceIds: number[];
+  ignoredRemovedDeviceIds: number[];
+  ignoredMaintenanceDeviceIds: number[];
+  roomIds: number[];
+  groupIds: number[];
+  routineIds: number[];
+  internalRoutineCount?: number;
+  goalIds: number[];
+  ruleProfileId: number | null;
+  preferenceId: number | null;
+  evidence: string;
+  explanation: string;
+  recommendedAction: string;
+}
+
+export interface OperationModeActivationResponse {
+  mode: OperationModeResponse;
+  turnedOnDeviceIds: number[];
+  turnedOffDeviceIds: number[];
+  ignoredRemovedDeviceIds: number[];
+  ignoredMaintenanceDeviceIds: number[];
+  enabledRoutineIds: number[];
+  disabledRoutineIds: number[];
+  evidence: string;
+  explanation: string;
+  recommendedAction: string;
+}
