@@ -16,6 +16,9 @@ export class SubscriptionAssembler extends BaseAssembler<
       planCode: response.planCode,
       status: response.status,
       active: response.active,
+      startDate: response.startDate,
+      nextBillingDate: response.nextBillingDate,
+      endDate: response.endDate,
     });
   }
 
