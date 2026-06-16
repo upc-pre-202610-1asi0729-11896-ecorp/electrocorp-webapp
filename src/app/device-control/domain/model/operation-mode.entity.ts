@@ -12,6 +12,7 @@ export interface OperationModeRoutine {
   triggerTime: string;
   enabled: boolean;
 }
+
 export class OperationMode extends BaseEntity<number> {
   constructor(
     private readonly props: {
@@ -73,4 +74,36 @@ export class OperationMode extends BaseEntity<number> {
   get applyRoutines(): boolean { return this.props.applyRoutines; }
   get preserveCriticalSound(): boolean { return this.props.preserveCriticalSound; }
   get lastActivatedAt(): string | null { return this.props.lastActivatedAt; }
+}
+
+export interface OperationModePreview {
+  modeId: number;
+  locationId: number;
+  locationName: string;
+  affectedDeviceIds: number[];
+  ignoredRemovedDeviceIds: number[];
+  ignoredMaintenanceDeviceIds: number[];
+  roomIds: number[];
+  groupIds: number[];
+  routineIds: number[];
+  internalRoutineCount?: number;
+  goalIds: number[];
+  ruleProfileId: number | null;
+  preferenceId: number | null;
+  evidence: string;
+  explanation: string;
+  recommendedAction: string;
+}
+
+export interface OperationModeActivation {
+  mode: OperationMode;
+  turnedOnDeviceIds: number[];
+  turnedOffDeviceIds: number[];
+  ignoredRemovedDeviceIds: number[];
+  ignoredMaintenanceDeviceIds: number[];
+  enabledRoutineIds: number[];
+  disabledRoutineIds: number[];
+  evidence: string;
+  explanation: string;
+  recommendedAction: string;
 }

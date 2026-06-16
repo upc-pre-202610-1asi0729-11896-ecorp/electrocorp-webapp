@@ -5,9 +5,11 @@ import {
 } from '../../domain/model/device.entity';
 
 export interface DeviceResponse extends BaseResponse<number> {
+  userId: number;
   name: string;
-  room: string;
+  room?: string | null;
   type: DeviceType;
-  status: DeviceStatus;
   powerWatts: number;
+  status: DeviceStatus;
+  createdAt: string;
 }

@@ -50,11 +50,6 @@ export const DEVICE_CONTROL_ROUTES: Routes = [
     pathMatch: 'full',
   },
   {
-    path: 'device-groups',
-    redirectTo: 'operation/groups',
-    pathMatch: 'full',
-  },
-  {
     path: 'routines',
     redirectTo: 'operation/routines',
     pathMatch: 'full',
@@ -62,6 +57,11 @@ export const DEVICE_CONTROL_ROUTES: Routes = [
   {
     path: 'operation-modes',
     redirectTo: 'operation/modes',
+    pathMatch: 'full',
+  },
+  {
+    path: 'device-groups',
+    redirectTo: 'operation/groups',
     pathMatch: 'full',
   },
 ];
