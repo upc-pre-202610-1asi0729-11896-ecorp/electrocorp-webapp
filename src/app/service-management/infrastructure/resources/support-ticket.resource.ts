@@ -5,10 +5,10 @@ import {
 } from '../../domain/model/support-ticket.entity';
 
 export interface SupportTicketResource extends BaseResource {
-  userId: number;
+  userId?: number;
   subject: string;
   description: string;
-  status: SupportTicketStatus;
   priority: SupportTicketPriority;
-  createdAt: string;
+  status: SupportTicketStatus;
+  createdAt?: string | null;
 }

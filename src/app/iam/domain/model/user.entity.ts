@@ -1,22 +1,26 @@
 import { BaseEntity } from '../../../shared/domain/model/base.entity';
 
-export type UserStatus = 'ACTIVE' | 'BLOCKED';
-
 export class User extends BaseEntity<number> {
   private readonly _fullName: string;
   private readonly _email: string;
-  private readonly _status: UserStatus;
+  private readonly _accessProfileId: number;
+  private readonly _accessProfileName: string;
+  private readonly _createdAt: string;
 
   constructor(props: {
     id: number;
     fullName: string;
     email: string;
-    status: UserStatus;
+    accessProfileId: number;
+    accessProfileName: string;
+    createdAt: string;
   }) {
     super(props.id);
     this._fullName = props.fullName;
     this._email = props.email;
-    this._status = props.status;
+    this._accessProfileId = props.accessProfileId;
+    this._accessProfileName = props.accessProfileName;
+    this._createdAt = props.createdAt;
   }
 
   get fullName(): string {
@@ -27,11 +31,24 @@ export class User extends BaseEntity<number> {
     return this._email;
   }
 
-  get status(): UserStatus {
-    return this._status;
+  get accessProfileId(): number {
+    return this._accessProfileId;
   }
 
-  get isActive(): boolean {
-    return this._status === 'ACTIVE';
+  get accessProfileName(): string {
+    return this._accessProfileName;
+  }
+
+  get createdAt(): string {
+    return this._createdAt;
+  }
+
+  get initials(): string {
+    return this._fullName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part.charAt(0).toUpperCase())
+      .join('');
   }
 }

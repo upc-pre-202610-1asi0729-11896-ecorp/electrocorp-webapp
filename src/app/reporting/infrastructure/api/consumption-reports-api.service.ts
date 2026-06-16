@@ -1,8 +1,10 @@
+import { Inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
+import { API_BASE_URL } from '../../../shared/infrastructure/api/api-config';
 import { BaseApiService } from '../../../shared/infrastructure/api/base-api.service';
+
 import { ConsumptionReport } from '../../domain/model/consumption-report.entity';
 import { ConsumptionReportAssembler } from '../assemblers/consumption-report.assembler';
 import { ConsumptionReportResource } from '../resources/consumption-report.resource';
@@ -16,13 +18,19 @@ export class ConsumptionReportsApiService extends BaseApiService<
   ConsumptionReportResource,
   ConsumptionReportResponse
 > {
-  constructor(http: HttpClient) {
-    super(http, 'consumptionReports', new ConsumptionReportAssembler());
+  constructor(
+    http: HttpClient,
+    @Inject(API_BASE_URL) apiBaseUrl: string
+  ) {
+    super(
+      http,
+      apiBaseUrl,
+      'reports',
+      new ConsumptionReportAssembler()
+    );
   }
 
-  findByUserId(userId: number): Observable<ConsumptionReportResponse[]> {
-    return this.http.get<ConsumptionReportResponse[]>(
-      `${this.apiBaseUrl}/consumptionReports?userId=${userId}`
-    );
+  findAllForCurrentUser(): Observable<ConsumptionReportResponse[]> {
+    return this.http.get<ConsumptionReportResponse[]>(this.resourceEndpoint);
   }
 }

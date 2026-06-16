@@ -1,80 +1,69 @@
-import { computed, inject, Injectable, signal } from '@angular/core';
+import { computed, Injectable, signal } from '@angular/core';
 
-import { STORAGE_KEYS } from '../../infrastructure/constants/storage-keys';
-import { LocalStorageService } from '../../infrastructure/storage/local-storage.service';
+export interface AuthenticatedUserSession {
+  id: number;
+  fullName: string;
+  email: string;
+  token: string;
+  accessProfileId?: number;
+  accessProfileName?: string;
+}
 
 @Injectable({
   providedIn: 'root',
 })
 export class AuthSessionService {
-  private readonly localStorage = inject(LocalStorageService);
+  private readonly storageKey = 'electrocorp_auth_session';
+  private readonly currentUserSignal = signal<AuthenticatedUserSession | null>(null);
+  private readonly loadingSignal = signal<boolean>(false);
 
-  private readonly authenticatedSignal = signal<boolean>(
-    this.localStorage.getItem(STORAGE_KEYS.auth) === 'true'
+  readonly currentUser = computed(() => this.currentUserSignal());
+  readonly loading = computed(() => this.loadingSignal());
+
+  readonly isAuthenticated = computed(() => this.currentUserSignal() !== null);
+
+  readonly userId = computed(() => this.currentUserSignal()?.id ?? null);
+  readonly token = computed(() => this.currentUserSignal()?.token ?? null);
+  readonly userEmail = computed(() => this.currentUserSignal()?.email ?? null);
+  readonly userFullName = computed(() => this.currentUserSignal()?.fullName ?? null);
+  readonly accessProfileName = computed(
+    () => this.currentUserSignal()?.accessProfileName ?? null
   );
 
-  private readonly userIdSignal = signal<number | null>(
-    this.parseUserId(this.localStorage.getItem(STORAGE_KEYS.userId))
-  );
-
-  private readonly userEmailSignal = signal<string | null>(
-    this.localStorage.getItem(STORAGE_KEYS.userEmail)
-  );
-
-  private readonly userNameSignal = signal<string | null>(
-    this.localStorage.getItem(STORAGE_KEYS.userName)
-  );
-
-  readonly isAuthenticated = computed(() => this.authenticatedSignal());
-  readonly userId = computed(() => this.userIdSignal());
-  readonly userEmail = computed(() => this.userEmailSignal());
-  readonly userName = computed(() => this.userNameSignal());
-
-  startSession(payload: {
-    id: number;
-    email: string;
-    fullName: string;
-  }): void {
-    this.localStorage.setItem(STORAGE_KEYS.auth, 'true');
-    this.localStorage.setItem(STORAGE_KEYS.userId, String(payload.id));
-    this.localStorage.setItem(STORAGE_KEYS.userEmail, payload.email);
-    this.localStorage.setItem(STORAGE_KEYS.userName, payload.fullName);
-
-    this.authenticatedSignal.set(true);
-    this.userIdSignal.set(payload.id);
-    this.userEmailSignal.set(payload.email);
-    this.userNameSignal.set(payload.fullName);
+  setLoading(value: boolean): void {
+    this.loadingSignal.set(value);
   }
 
-  closeSession(): void {
-    this.localStorage.removeItem(STORAGE_KEYS.auth);
-    this.localStorage.removeItem(STORAGE_KEYS.userId);
-    this.localStorage.removeItem(STORAGE_KEYS.userEmail);
-    this.localStorage.removeItem(STORAGE_KEYS.userName);
-
-    this.authenticatedSignal.set(false);
-    this.userIdSignal.set(null);
-    this.userEmailSignal.set(null);
-    this.userNameSignal.set(null);
+  setCurrentUser(user: AuthenticatedUserSession): void {
+    this.currentUserSignal.set(user);
+    localStorage.setItem(this.storageKey, JSON.stringify(user));
   }
 
-  restoreSession(): void {
-    const auth = this.localStorage.getItem(STORAGE_KEYS.auth);
-    const userId = this.localStorage.getItem(STORAGE_KEYS.userId);
-    const email = this.localStorage.getItem(STORAGE_KEYS.userEmail);
-    const name = this.localStorage.getItem(STORAGE_KEYS.userName);
-
-    this.authenticatedSignal.set(auth === 'true');
-    this.userIdSignal.set(this.parseUserId(userId));
-    this.userEmailSignal.set(email);
-    this.userNameSignal.set(name);
+  clearSession(): void {
+    this.currentUserSignal.set(null);
+    localStorage.removeItem(this.storageKey);
   }
 
-  private parseUserId(value: string | null): number | null {
-    if (!value) return null;
+  restoreStoredSession(): AuthenticatedUserSession | null {
+    const rawSession = localStorage.getItem(this.storageKey);
 
-    const parsed = Number(value);
+    if (!rawSession) {
+      return null;
+    }
 
-    return Number.isNaN(parsed) ? null : parsed;
+    try {
+      const session = JSON.parse(rawSession) as AuthenticatedUserSession;
+
+      if (!session.id || !session.email || !session.fullName || !session.token) {
+        this.clearSession();
+        return null;
+      }
+
+      this.currentUserSignal.set(session);
+      return session;
+    } catch {
+      this.clearSession();
+      return null;
+    }
   }
 }

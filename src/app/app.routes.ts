@@ -1,17 +1,15 @@
 import { Routes } from '@angular/router';
 
-import { IAM_ROUTES } from './iam/presentation/routes/iam.routes';
+import { BILLING_ROUTES } from './billing/presentation/routes/billing.routes';
 import { DEVICE_CONTROL_ROUTES } from './device-control/presentation/routes/device-control.routes';
 import { ENERGY_MONITORING_ROUTES } from './energy-monitoring/presentation/routes/energy-monitoring.routes';
-import { BILLING_ROUTES } from './billing/presentation/routes/billing.routes';
+import { IAM_ROUTES } from './iam/presentation/routes/iam.routes';
 import { NOTIFICATIONS_ROUTES } from './notifications/presentation/routes/notifications.routes';
+import { REPORTING_ROUTES } from './reporting/presentation/routes/reporting.routes';
+import { SERVICE_MANAGEMENT_ROUTES } from './service-management/presentation/routes/service-management.routes';
 import { activeSubscriptionGuard } from './shared/application/guards/active-subscription.guard';
-
-const withGuardAndTitle = (routes: Routes): Routes =>
-  routes.map((route) => ({
-    ...route,
-    canActivate: [activeSubscriptionGuard],
-  }));
+import { authGuard } from './shared/application/guards/auth.guard';
+import { WORKPLACE_ROUTES } from './workplace/presentation/routes/workplace.routes';
 
 export const routes: Routes = [
   {
@@ -20,8 +18,75 @@ export const routes: Routes = [
     pathMatch: 'full',
   },
 
+  {
+    path: 'settings',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import(
+        './shared/presentation/components/settings-shell/settings-shell.component'
+      ).then((m) => m.SettingsShellComponent),
+    children: [
+      {
+        path: '',
+        redirectTo: 'profile',
+        pathMatch: 'full',
+      },
+      {
+        path: 'profile',
+        data: { title: 'Perfil' },
+        loadComponent: () =>
+          import('./iam/presentation/pages/profile/profile-page.component').then(
+            (m) => m.ProfilePageComponent
+          ),
+      },
+      {
+        path: 'account',
+        data: { title: 'Cuenta' },
+        loadComponent: () =>
+          import('./iam/presentation/pages/account/account-page.component').then(
+            (m) => m.AccountPageComponent
+          ),
+      },
+      {
+        path: 'security',
+        data: { title: 'Seguridad' },
+        loadComponent: () =>
+          import('./iam/presentation/pages/security/security-page.component').then(
+            (m) => m.SecurityPageComponent
+          ),
+      },
+      {
+        path: 'notifications',
+        redirectTo: '/alerts/preferences',
+        pathMatch: 'full',
+      },
+      {
+        path: 'billing',
+        data: { title: 'Facturacion' },
+        loadComponent: () =>
+          import(
+            './billing/presentation/pages/billing-history/billing-history-page.component'
+          ).then((m) => m.BillingHistoryPageComponent),
+      },
+      {
+        path: 'platform',
+        data: { title: 'Plataforma' },
+        loadComponent: () =>
+          import('./iam/presentation/pages/platform/platform-page.component').then(
+            (m) => m.PlatformPageComponent
+          ),
+      },
+    ],
+  },
+
   ...IAM_ROUTES,
   ...BILLING_ROUTES,
+  ...DEVICE_CONTROL_ROUTES,
+  ...ENERGY_MONITORING_ROUTES,
+  ...NOTIFICATIONS_ROUTES,
+  ...WORKPLACE_ROUTES,
+  ...REPORTING_ROUTES,
+  ...SERVICE_MANAGEMENT_ROUTES,
 
   {
     path: 'home',
@@ -34,24 +99,19 @@ export const routes: Routes = [
   },
   {
     path: 'about',
-    canActivate: [activeSubscriptionGuard],
     data: { title: 'About' },
     loadComponent: () =>
       import('./shared/presentation/pages/about/about-page.component').then(
         (m) => m.AboutPageComponent
       ),
   },
-
-  ...withGuardAndTitle(DEVICE_CONTROL_ROUTES),
-  ...withGuardAndTitle(ENERGY_MONITORING_ROUTES),
-  ...withGuardAndTitle(NOTIFICATIONS_ROUTES),
-
   {
     path: '**',
+    canActivate: [authGuard],
     data: { title: 'Page Not Found' },
     loadComponent: () =>
-      import('./shared/presentation/pages/not-found/not-found-page.component').then(
-        (m) => m.NotFoundPageComponent
-      ),
+      import(
+        './shared/presentation/pages/not-found/not-found-page.component'
+        ).then((m) => m.NotFoundPageComponent),
   },
 ];
