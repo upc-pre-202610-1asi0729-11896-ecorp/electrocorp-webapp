@@ -28,7 +28,7 @@ export class PaymentFormComponent {
 
   onCardNumberChange(value: string): void {
     const digits = value.replace(/\D/g, '').slice(0, 16);
-    this.cardNumber = digits.replace(/(.{4})/g, '$1 ').trim();
+    this.cardNumber = digits.match(/.{1,4}/g)?.join(' ') ?? '';
   }
 
   onExpirationDateChange(value: string): void {
@@ -43,7 +43,7 @@ export class PaymentFormComponent {
   }
 
   onCvvChange(value: string): void {
-    this.cvv = value.replace(/\D/g, '').slice(0, 4);
+    this.cvv = value.replace(/\D/g, '').slice(0, 3);
   }
 
   onConfirm(): void {
