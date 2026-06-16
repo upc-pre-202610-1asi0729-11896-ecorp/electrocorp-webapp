@@ -1,10 +1,22 @@
 import { BaseResource } from '../../../shared/infrastructure/resources/base.resource';
-import { RoutineAction } from '../../domain/model/routine.entity';
+import {
+  RoutineAction,
+  RoutineRepeatType,
+  RoutineTargetType,
+} from '../../domain/model/routine.entity';
 
 export interface RoutineResource extends BaseResource {
+  userId?: number;
+  deviceId?: number | null;
+  groupId?: number | null;
+  targetType: RoutineTargetType;
+  targetId: number;
   name: string;
-  deviceId: number;
   action: RoutineAction;
-  scheduledTime: string;
-  enabled: boolean;
+  time: string;
+  repeatType?: RoutineRepeatType;
+  daysOfWeek?: string | null;
+  intervalDays?: number | null;
+  startsOn?: string | null;
+  enabled?: boolean;
 }

@@ -5,4 +5,6 @@ export const STORAGE_KEYS = {
   userName: 'ec.user.name',
   language: 'ec.language',
   darkMode: 'ec.darkMode',
+  activeWorkplaceId: 'ec.activeWorkplaceId',
+  notificationClassificationPolicy: 'ec.notifications.classificationPolicy',
 } as const;

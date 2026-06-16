@@ -5,6 +5,9 @@ export interface PlanResponse extends BaseResponse<number> {
   code: PlanCode;
   name: string;
   monthlyPrice: number;
-  description: string;
-  features: string[];
+  currency: string;
+  maxDevices: number | null;
+  maxRoutines: number | null;
+  maxAlerts: number | null;
+  reportExportEnabled: boolean;
 }

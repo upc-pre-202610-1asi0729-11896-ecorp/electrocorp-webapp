@@ -1,76 +1,33 @@
-:root {
-  font-family: 'Roboto', system-ui, sans-serif;
-
-  --accent-color: #42c2ff;
-  --accent-contrast: #071225;
-  --danger-color: #ff9aa8;
-
-  --bg-start: #071225;
-  --bg-middle: #0b1f3f;
-  --bg-end: #08142b;
-  --glow-color: rgba(66, 194, 255, 0.16);
-
-  --topbar-bg: rgba(7, 18, 37, 0.76);
-  --card-bg: rgba(255, 255, 255, 0.06);
-  --button-bg: rgba(255, 255, 255, 0.08);
-  --nav-active-bg: rgba(66, 194, 255, 0.16);
-
-  --text-primary: #ffffff;
-  --text-secondary: #d9e7ff;
-  --text-muted: #b8c7e0;
-
-  --border-color: rgba(255, 255, 255, 0.1);
-  --card-shadow: 0 0 24px rgba(58, 186, 255, 0.12);
+.not-found {
+  min-height: 60vh;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  text-align: center;
+  gap: 16px;
 }
 
-:root.light-theme {
-  --bg-start: #eaf7ff;
-  --bg-middle: #f7fbff;
-  --bg-end: #ffffff;
-  --glow-color: rgba(66, 194, 255, 0.18);
-
-  --topbar-bg: rgba(255, 255, 255, 0.82);
-  --card-bg: rgba(255, 255, 255, 0.92);
-  --button-bg: rgba(8, 20, 43, 0.05);
-  --nav-active-bg: rgba(66, 194, 255, 0.18);
-
-  --text-primary: #071225;
-  --text-secondary: #19345a;
-  --text-muted: #5d6f8a;
-
-  --border-color: rgba(66, 194, 255, 0.22);
-  --card-shadow: 0 0 24px rgba(58, 186, 255, 0.12);
-}
-
-:root.dark-theme {
-  --bg-start: #071225;
-  --bg-middle: #0b1f3f;
-  --bg-end: #08142b;
-  --glow-color: rgba(66, 194, 255, 0.16);
-
-  --topbar-bg: rgba(7, 18, 37, 0.76);
-  --card-bg: rgba(255, 255, 255, 0.06);
-  --button-bg: rgba(255, 255, 255, 0.08);
-  --nav-active-bg: rgba(66, 194, 255, 0.16);
-
-  --text-primary: #ffffff;
-  --text-secondary: #d9e7ff;
-  --text-muted: #b8c7e0;
-
-  --border-color: rgba(255, 255, 255, 0.1);
-  --card-shadow: 0 0 24px rgba(58, 186, 255, 0.12);
-}
-
-* {
-  box-sizing: border-box;
-}
-
-html,
-body {
-  min-height: 100%;
+h1 {
   margin: 0;
+  font-size: clamp(2.2rem, 5vw, 4rem);
 }
 
-body {
-  font-family: 'Roboto', system-ui, sans-serif;
+p {
+  max-width: 520px;
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 999px;
+  color: var(--text-on-action);
+  background: var(--ec-action-bg);
+  text-decoration: none;
+  font-weight: 900;
 }

@@ -1,220 +1,310 @@
-<section class="reporting-page">
-  <article class="hero-card">
-    <div>
-      <p class="eyebrow">{{ 'reporting.reportsEyebrow' | translate }}</p>
-      <h1>{{ 'reporting.reportsTitle' | translate }}</h1>
-      <p>{{ 'reporting.reportsSubtitle' | translate }}</p>
-    </div>
+﻿<section class="reporting-page">
+  <header class="ec-page-heading">
+    <p class="ec-page-eyebrow">
+      {{ 'reporting.reportsEyebrow' | translate }}
+    </p>
 
-    <button
-      type="button"
-      class="primary-action-btn"
-      (click)="openGenerateForm()"
-    >
-      {{ 'reporting.generateReport' | translate }}
-    </button>
-  </article>
+    <h1 class="ec-page-title">
+      {{ 'reporting.reportsTitle' | translate }}
+    </h1>
 
-  @if (showGenerateForm) {
-    <article class="form-card">
-      <div class="form-header">
-        <div>
-          <p class="eyebrow">{{ 'reporting.newReport' | translate }}</p>
-          <h2>{{ 'reporting.generateConsumptionReport' | translate }}</h2>
-          <p>{{ 'reporting.generateReportDescription' | translate }}</p>
-        </div>
+    <p class="ec-page-description">
+      {{ 'reporting.reportsSubtitle' | translate }}
+    </p>
+  </header>
 
-        <button
-          type="button"
-          class="secondary-action-btn"
-          (click)="closeGenerateForm()"
-        >
-          {{ 'common.cancel' | translate }}
-        </button>
+  <section class="summary-grid">
+    <article>
+      <span>{{ 'reporting.totalReports' | translate }}</span>
+      <strong>{{ reportingFacade.consumptionReports().length }}</strong>
+    </article>
+
+    <article>
+      <span>{{ 'reporting.totalReportedWatts' | translate }}</span>
+      <strong>{{ reportingFacade.totalReportedWatts() }} W</strong>
+    </article>
+
+    <article>
+      <span>{{ 'reporting.averageReportedWatts' | translate }}</span>
+      <strong>{{ reportingFacade.averageReportedWatts() }} W</strong>
+    </article>
+  </section>
+
+  <section class="form-card">
+    <div class="form-card__header">
+      <div>
+        <h2>{{ 'reporting.createReport' | translate }}</h2>
+        <p>
+          {{ 'reporting.createReportDescription' | translate }}
+        </p>
       </div>
 
-      <form class="report-form" (ngSubmit)="handleGenerateReport()">
-        <label>
-          {{ 'reporting.startDate' | translate }}
-          <input
-            type="date"
-            name="startDate"
-            [(ngModel)]="startDate"
-            [max]="today"
-            required
-          />
-        </label>
+      <span class="range-summary">
+        {{ formatDate(selectedRangeValue.startDate) }} -
+        {{ formatDate(selectedRangeValue.endDate) }}
+      </span>
+    </div>
 
-        <label>
-          {{ 'reporting.endDate' | translate }}
-          <input
-            type="date"
-            name="endDate"
-            [(ngModel)]="endDate"
-            [max]="today"
-            required
-          />
-        </label>
+    <form class="form" (ngSubmit)="createReport()">
+      <input
+        type="text"
+        name="title"
+        [(ngModel)]="title"
+        [placeholder]="'reporting.reportTitle' | translate"
+        required
+      />
 
-        <button
-          type="submit"
-          class="primary-action-btn submit-btn"
-          [disabled]="reportingFacade.loading()"
-        >
-          @if (reportingFacade.loading()) {
-            {{ 'reporting.generating' | translate }}
-          } @else {
-            {{ 'reporting.saveReport' | translate }}
-          }
-        </button>
-      </form>
-    </article>
-  }
+      <app-dropdown
+        [options]="periodOptions"
+        [value]="period"
+        [placeholder]="'reporting.period' | translate"
+        (valueChange)="onPeriodChange($event)"
+      />
+
+      <app-button
+        type="submit"
+        [disabled]="reportingFacade.loading()"
+      >
+        {{ 'reporting.generate' | translate }}
+      </app-button>
+    </form>
+
+    <app-wheel-selector
+      [options]="rangeOptions"
+      [value]="selectedRangeValue.value"
+      [eyebrow]="'reporting.reportRangeEyebrow' | translate"
+      [title]="rangeSelectionTitle()"
+      [summary]="selectedRangeSummary()"
+      [hint]="'reporting.reportRangeHint' | translate"
+      (optionChange)="onRangeChange($event)"
+    />
+  </section>
 
   @if (reportingFacade.loading()) {
-    <article class="card">
-      <p>{{ 'reporting.loadingReports' | translate }}</p>
-    </article>
-  } @else if (reportingFacade.error()) {
-    <article class="card error-card">
-      <p>{{ reportingFacade.error()! | translate }}</p>
-    </article>
+    <div class="loading-wrapper">
+      <app-loading-spinner />
+    </div>
   } @else {
-    <section class="summary-grid">
-      <article class="summary-card">
-        <span>{{ 'reporting.reports' | translate }}</span>
-        <strong>{{ reportingFacade.totalReports() }}</strong>
-      </article>
+    <app-monthly-comparison-chart
+      [reports]="reportingFacade.consumptionReports()"
+      (reportSelected)="openReportDetail($event)"
+    />
 
-      <article class="summary-card">
-        <span>{{ 'reporting.totalWatts' | translate }}</span>
-        <strong>{{ reportingFacade.totalWattsReported() }}</strong>
-      </article>
+    <section class="report-list-card">
+      <div class="report-list-card__header">
+        <div>
+          <h2>{{ 'reporting.generatedReportsTitle' | translate }}</h2>
+          <p>{{ 'reporting.generatedReportsDescription' | translate }}</p>
+        </div>
 
-      <article class="summary-card">
-        <span>{{ 'reporting.highestReading' | translate }}</span>
-        <strong>{{ reportingFacade.highestReading() }}</strong>
-      </article>
+        <span>
+          {{ reportingFacade.consumptionReports().length }}
+          {{ 'history.records' | translate }}
+        </span>
+      </div>
 
-      <article class="summary-card">
-        <span>{{ 'reporting.averagePerReport' | translate }}</span>
-        <strong>{{ reportingFacade.averageReportWatts() }}</strong>
-      </article>
-
-      <article class="summary-card">
-        <span>{{ 'reporting.criticalReports' | translate }}</span>
-        <strong>{{ reportingFacade.criticalReports() }}</strong>
-      </article>
-    </section>
-
-    @if (!reportingFacade.reports().length) {
-      <article class="empty-card">
-        <h2>{{ 'reporting.emptyReportsTitle' | translate }}</h2>
-        <p>{{ 'reporting.emptyReportsDescription' | translate }}</p>
-      </article>
-    } @else {
-      <section class="insight-grid">
-        <article class="card">
-          <div class="section-header">
-            <p class="eyebrow">{{ 'reporting.insight' | translate }}</p>
-            <h2>{{ 'reporting.highestConsumptionPeriod' | translate }}</h2>
-          </div>
-
-          <div class="highlight-box">
-            <strong>{{ reportingFacade.strongestReport()?.period }}</strong>
-
-            <span>
-              {{ reportingFacade.strongestReport()?.totalWatts ?? 0 }}
-              {{ 'reporting.totalWatts' | translate }}
-            </span>
-
-            <p>{{ reportingFacade.strongestReport()?.recommendation }}</p>
-          </div>
-        </article>
-
-        <article class="card">
-          <div class="section-header">
-            <p class="eyebrow">{{ 'reporting.trend' | translate }}</p>
-            <h2>{{ 'reporting.reportsComparison' | translate }}</h2>
-          </div>
-
-          <div class="trend-list">
-            @for (report of reportingFacade.reportsSorted(); track report.id) {
-              <div class="trend-item">
-                <div class="trend-meta">
-                  <span>{{ report.period }}</span>
-                  <strong>{{ report.totalWatts }}</strong>
-                </div>
-
-                <div class="trend-bar-track">
-                  <div
-                    class="trend-bar-fill"
-                    [style.width.%]="
-                      (report.totalWatts /
-                        reportingFacade.maxReportTotalWatts()) *
-                      100
-                    "
-                  ></div>
-                </div>
-              </div>
-            }
-          </div>
-        </article>
-      </section>
-
-      <section class="report-grid">
-        @for (report of reportingFacade.reportsSorted(); track report.id) {
-          <article class="report-card">
-            <div class="report-header">
-              <div>
-                <p class="eyebrow">{{ report.period }}</p>
-
-                <h2>
-                  {{ 'reporting.issuedReport' | translate }} #{{ report.id }}
-                </h2>
-              </div>
-
-              <span
-                class="status-badge"
-                [class.critical]="report.highestReading >= 1000"
-                [class.warning]="
-                  report.highestReading >= 500 && report.highestReading < 1000
-                "
-                [class.normal]="report.highestReading < 500"
-              >
-                {{
-                  report.highestReading >= 1000
-                    ? ('reporting.critical' | translate)
-                    : report.highestReading >= 500
-                      ? ('reporting.high' | translate)
-                      : ('reporting.normal' | translate)
-                }}
-              </span>
-            </div>
-
-            <div class="metric-row">
-              <div>
-                <span>{{ 'reporting.totalWatts' | translate }}</span>
-                <strong>{{ report.totalWatts }}</strong>
-              </div>
-
-              <div>
-                <span>{{ 'reporting.averageWatts' | translate }}</span>
-                <strong>{{ report.averageWatts }}</strong>
-              </div>
-
-              <div>
-                <span>{{ 'reporting.highestReading' | translate }}</span>
-                <strong>{{ report.highestReading }}</strong>
-              </div>
-            </div>
-
-            <p class="recommendation">
-              {{ report.recommendation }}
-            </p>
-          </article>
+      <div class="list">
+        @for (report of reportingFacade.consumptionReports(); track report.id) {
+          <app-report-card
+            [report]="report"
+            (exported)="exportReport($event)"
+            (remove)="deleteReport($event)"
+          />
+        } @empty {
+          <app-empty-state
+            [eyebrow]="'reporting.emptyReportsEyebrow' | translate"
+            [title]="'reporting.emptyReportsTitle' | translate"
+            [description]="'reporting.emptyReportsContent' | translate"
+          />
         }
+      </div>
+    </section>
+  }
+
+  @if (selectedReport; as report) {
+    @let summary = getInvoiceSummary(report);
+    @let devices = getDeviceBreakdown(report);
+    @let topDevices = getTopDevices(report);
+
+    <div
+      class="invoice-backdrop ec-modal-backdrop"
+      [class.ec-modal-backdrop--closing]="isReportDetailClosing"
+      (click)="closeReportDetail()"
+    >
+      <section
+        class="invoice-modal ec-modal-panel"
+        [class.ec-modal-panel--closing]="isReportDetailClosing"
+        (click)="$event.stopPropagation()"
+      >
+        <header class="invoice-header">
+          <div>
+            <p class="invoice-eyebrow">{{ 'reporting.invoice.eyebrow' | translate }}</p>
+            <h2>{{ 'reporting.invoice.title' | translate: { id: report.id } }}</h2>
+            <span>
+              {{ formatDate(report.startDate) }} - {{ formatDate(report.endDate) }}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            class="invoice-close"
+            [attr.aria-label]="'reporting.invoice.close' | translate"
+            (click)="closeReportDetail()"
+          >
+            &times;
+          </button>
+        </header>
+
+        <div class="invoice-scroll ec-scrollbar">
+          <section class="invoice-hero">
+            <article>
+              <span>{{ 'reporting.invoice.totalEnergy' | translate }}</span>
+              <strong>{{ formatEnergy(summary.totalKilowattHours) }}</strong>
+              <small>{{ 'reporting.invoice.exactReadings' | translate: { count: summary.readings } }}</small>
+            </article>
+
+            <article class="invoice-hero__accent">
+              <span>{{ 'reporting.invoice.totalToPay' | translate }}</span>
+              <strong>S/ {{ formatMoney(summary.totalCost) }}</strong>
+              <small>{{ 'reporting.invoice.realKwhCalculation' | translate }}</small>
+            </article>
+
+            <article>
+              <span>{{ 'nav.devices' | translate }}</span>
+              <strong>{{ summary.devices }}</strong>
+              <small>{{ 'reporting.invoice.monitoredDuration' | translate: { duration: formatDuration(summary.totalSeconds) } }}</small>
+            </article>
+          </section>
+
+          <section class="invoice-grid">
+            <article class="invoice-panel">
+              <div class="invoice-panel__title">
+                <span>{{ 'reporting.invoice.technicalSummary' | translate }}</span>
+                <strong>{{ periodLabel(report.period) }}</strong>
+              </div>
+
+              <div class="invoice-facts">
+                <div>
+                  <span>{{ 'reporting.invoice.averagePower' | translate }}</span>
+                  <strong>{{ formatNumber(summary.averageWatts) }} W</strong>
+                </div>
+
+                <div>
+                  <span>{{ 'reporting.invoice.detectedPeak' | translate }}</span>
+                  <strong>{{ formatNumber(summary.highestWatts) }} W</strong>
+                </div>
+
+                <div>
+                  <span>{{ 'reporting.invoice.criticalReadings' | translate }}</span>
+                  <strong>{{ countHighReadings(report) }}</strong>
+                </div>
+
+                <div>
+                  <span>{{ 'reporting.invoice.costPerKwh' | translate }}</span>
+                  <strong>
+                    S/
+                    {{
+                      summary.totalKilowattHours
+                        ? formatNumber(summary.totalCost / summary.totalKilowattHours, 2)
+                        : formatNumber(0, 2)
+                    }}
+                  </strong>
+                </div>
+
+                <div>
+                  <span>{{ 'reporting.invoice.billedEnergy' | translate }}</span>
+                  <strong>{{ formatEnergy(summary.totalKilowattHours) }}</strong>
+                </div>
+
+                <div>
+                  <span>{{ 'reporting.invoice.energySubtotal' | translate }}</span>
+                  <strong>S/ {{ formatMoney(summary.totalCost) }}</strong>
+                </div>
+
+                <div>
+                  <span>{{ 'reporting.invoice.measuredDevices' | translate }}</span>
+                  <strong>{{ summary.devices }}</strong>
+                </div>
+
+                <div>
+                  <span>{{ 'reporting.invoice.totalOnTime' | translate }}</span>
+                  <strong>{{ formatDuration(summary.totalSeconds) }}</strong>
+                </div>
+              </div>
+            </article>
+
+            <article class="invoice-panel">
+              <div class="invoice-panel__title">
+                <span>{{ 'reporting.invoice.topConsumption' | translate }}</span>
+                <strong>{{ 'reporting.invoice.devicesCount' | translate: { count: topDevices.length } }}</strong>
+              </div>
+
+              <div class="top-devices">
+                @for (device of topDevices; track device.deviceId) {
+                  <div class="top-device">
+                    <div>
+                      <strong>{{ device.deviceName }}</strong>
+                      <span>{{ formatEnergy(device.totalKilowattHours) }}</span>
+                    </div>
+
+                    <b>{{ formatNumber(device.share, 1) }}%</b>
+                  </div>
+                } @empty {
+                  <p class="invoice-empty">{{ 'reporting.invoice.noDevicesInRange' | translate }}</p>
+                }
+              </div>
+            </article>
+          </section>
+
+          <section class="invoice-panel invoice-panel--wide">
+            <div class="invoice-panel__title">
+              <span>{{ 'reporting.invoice.deviceExactDetail' | translate }}</span>
+              <strong>S/ {{ formatMoney(summary.totalCost) }}</strong>
+            </div>
+
+            <div class="invoice-table-wrap ec-scrollbar">
+              <table class="invoice-table">
+                <thead>
+                  <tr>
+                    <th>{{ 'history.device' | translate }}</th>
+                    <th>{{ 'reporting.invoice.readings' | translate }}</th>
+                    <th>{{ 'reporting.invoice.onTime' | translate }}</th>
+                    <th>{{ 'reporting.invoice.exactKwh' | translate }}</th>
+                    <th>{{ 'home.averageConsumption' | translate }}</th>
+                    <th>{{ 'reporting.invoice.peak' | translate }}</th>
+                    <th>{{ 'reporting.invoice.share' | translate }}</th>
+                    <th>{{ 'reporting.invoice.subtotal' | translate }}</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  @for (device of devices; track device.deviceId) {
+                    <tr>
+                      <td>{{ device.deviceName }}</td>
+                      <td>{{ device.readings }}</td>
+                      <td>{{ formatDuration(device.totalSeconds) }}</td>
+                      <td>{{ formatEnergy(device.totalKilowattHours) }}</td>
+                      <td>{{ formatNumber(device.averageWatts) }} W</td>
+                      <td>{{ formatNumber(device.highestWatts) }} W</td>
+                      <td>
+                        <span class="share-meter">
+                          <i [style.width.%]="device.share"></i>
+                        </span>
+                        {{ formatNumber(device.share, 1) }}%
+                      </td>
+                      <td>S/ {{ formatMoney(device.totalCost) }}</td>
+                    </tr>
+                  } @empty {
+                    <tr>
+                      <td colspan="8">{{ 'reporting.invoice.noReadingsForReport' | translate }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
       </section>
-    }
+    </div>
   }
 </section>

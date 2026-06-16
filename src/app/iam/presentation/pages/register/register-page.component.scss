@@ -1,1 +1,21 @@
 @use '../login/login-page.component.scss';
+
+.password-rules {
+  display: grid;
+  gap: 7px;
+  margin-top: -6px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--ec-surface-subtle);
+}
+
+.password-rules span {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.password-rules span.valid {
+  color: var(--ec-status-success-text);
+}
