@@ -1343,7 +1343,7 @@
       },
       "map": {
         "title": "Selector aproximado",
-        "description": "OpenStreetMap se usa como referencia visual sin API key. Si no hay direccion exacta, se guardan coordenadas aproximadas.",
+        "description": "Arrastra el mapa, usa la rueda para acercar o busca una direccion para ubicar el marcador.",
         "iframeTitle": "Mapa OpenStreetMap de referencia",
         "surfaceLabel": "Seleccionar punto en el mapa",
         "selectedLabel": "Ubicacion seleccionada",
