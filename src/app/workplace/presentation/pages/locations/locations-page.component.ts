@@ -18,6 +18,12 @@ import { WorkplaceFacade } from '../../../application/services/workplace.facade'
 import { LocationType } from '../../../domain/model/location.entity';
 import { LocationCardComponent } from '../../components/location-card/location-card.component';
 
+interface OpenStreetMapPlace {
+  display_name: string;
+  lat: string;
+  lon: string;
+}
+
 @Component({
   selector: 'app-locations-page',
   standalone: true,
@@ -44,11 +50,19 @@ export class LocationsPageComponent implements OnInit {
   selectedLongitude = -77.0428;
   markerX = 50;
   markerY = 50;
+  addressSuggestions: OpenStreetMapPlace[] = [];
+  addressSearchLoading = false;
+  locatingUser = false;
 
   readonly types: LocationType[] = ['HOME', 'BUSINESS', 'BRANCH'];
-  private readonly mapCenterLatitude = -12.0464;
-  private readonly mapCenterLongitude = -77.0428;
-  private readonly mapHalfSpan = 0.045;
+  private mapCenterLatitude = -12.0464;
+  private mapCenterLongitude = -77.0428;
+  private mapZoomLevel = 12;
+  private readonly mapBaseHalfSpan = 0.045;
+  private readonly minMapZoomLevel = 10;
+  private readonly maxMapZoomLevel = 17;
+  private addressSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private addressSearchRequestId = 0;
 
   constructor(
     readonly workplaceFacade: WorkplaceFacade,
@@ -106,10 +120,11 @@ export class LocationsPageComponent implements OnInit {
   }
 
   get mapPreviewUrl(): SafeResourceUrl {
-    const west = this.mapCenterLongitude - this.mapHalfSpan;
-    const east = this.mapCenterLongitude + this.mapHalfSpan;
-    const south = this.mapCenterLatitude - this.mapHalfSpan;
-    const north = this.mapCenterLatitude + this.mapHalfSpan;
+    const span = this.mapHalfSpan();
+    const west = this.mapCenterLongitude - span;
+    const east = this.mapCenterLongitude + span;
+    const south = this.mapCenterLatitude - span;
+    const north = this.mapCenterLatitude + span;
     const url = `https://www.openstreetmap.org/export/embed.html?bbox=${west}%2C${south}%2C${east}%2C${north}&layer=mapnik&marker=${this.selectedLatitude}%2C${this.selectedLongitude}`;
 
     return this.sanitizer.bypassSecurityTrustResourceUrl(url);
@@ -121,6 +136,7 @@ export class LocationsPageComponent implements OnInit {
 
   closeCreateModal(): void {
     this.createModalOpen = false;
+    this.clearAddressSuggestions();
   }
 
   async createLocation(): Promise<void> {
@@ -185,16 +201,77 @@ export class LocationsPageComponent implements OnInit {
     this.type = value as LocationType;
   }
 
+  onAddressChange(value: string): void {
+    this.address = value;
+    this.scheduleAddressSearch(value);
+  }
+
+  selectAddressSuggestion(place: OpenStreetMapPlace): void {
+    const latitude = Number(place.lat);
+    const longitude = Number(place.lon);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      return;
+    }
+
+    this.address = place.display_name;
+    this.clearAddressSuggestions();
+    this.setSelectedCoordinates(latitude, longitude, true);
+  }
+
+  zoomInMap(): void {
+    if (this.mapZoomLevel >= this.maxMapZoomLevel) {
+      return;
+    }
+
+    this.mapZoomLevel += 1;
+  }
+
+  zoomOutMap(): void {
+    if (this.mapZoomLevel <= this.minMapZoomLevel) {
+      return;
+    }
+
+    this.mapZoomLevel -= 1;
+  }
+
+  locateUser(): void {
+    if (!navigator.geolocation) {
+      this.toastService.error(this.t('workplace.locations.map.locationUnavailable'));
+      return;
+    }
+
+    this.locatingUser = true;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        this.setSelectedCoordinates(latitude, longitude, true);
+        void this.updateAddressFromCoordinates(latitude, longitude);
+        this.locatingUser = false;
+      },
+      () => {
+        this.locatingUser = false;
+        this.toastService.error(this.t('workplace.locations.map.locationDenied'));
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000,
+      }
+    );
+  }
+
   selectMapPoint(event: MouseEvent): void {
     const target = event.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
     const x = Math.min(Math.max((event.clientX - rect.left) / rect.width, 0), 1);
     const y = Math.min(Math.max((event.clientY - rect.top) / rect.height, 0), 1);
+    const span = this.mapHalfSpan();
 
     this.markerX = x * 100;
     this.markerY = y * 100;
-    this.selectedLongitude = this.mapCenterLongitude + (x - 0.5) * this.mapHalfSpan * 2;
-    this.selectedLatitude = this.mapCenterLatitude + (0.5 - y) * this.mapHalfSpan * 2;
+    this.selectedLongitude = this.mapCenterLongitude + (x - 0.5) * span * 2;
+    this.selectedLatitude = this.mapCenterLatitude + (0.5 - y) * span * 2;
 
     const selectedReference = this.t('workplace.locations.map.selectedAddress', {
       coordinates: this.selectedCoordinateLabel,
@@ -203,6 +280,8 @@ export class LocationsPageComponent implements OnInit {
     if (!this.address.trim() || this.isGeneratedMapReference(this.address)) {
       this.address = selectedReference;
     }
+
+    void this.updateAddressFromCoordinates(this.selectedLatitude, this.selectedLongitude);
   }
 
   deviceCountForLocation(locationId: number): number {
@@ -254,6 +333,105 @@ export class LocationsPageComponent implements OnInit {
     return this.workplaceFacade
       .deviceAssignments()
       .filter((assignment) => assignment.locationId === locationId);
+  }
+
+  private mapHalfSpan(): number {
+    return this.mapBaseHalfSpan / Math.pow(2, this.mapZoomLevel - 12);
+  }
+
+  private setSelectedCoordinates(latitude: number, longitude: number, centerMap: boolean): void {
+    this.selectedLatitude = latitude;
+    this.selectedLongitude = longitude;
+
+    if (centerMap) {
+      this.mapCenterLatitude = latitude;
+      this.mapCenterLongitude = longitude;
+      this.markerX = 50;
+      this.markerY = 50;
+    }
+  }
+
+  private scheduleAddressSearch(value: string): void {
+    if (this.addressSearchTimer) {
+      clearTimeout(this.addressSearchTimer);
+      this.addressSearchTimer = null;
+    }
+
+    const query = value.trim();
+
+    if (query.length < 3 || this.isGeneratedMapReference(query)) {
+      this.clearAddressSuggestions();
+      return;
+    }
+
+    this.addressSearchTimer = setTimeout(() => {
+      this.addressSearchTimer = null;
+      void this.searchAddressSuggestions(query);
+    }, 350);
+  }
+
+  private async searchAddressSuggestions(query: string): Promise<void> {
+    const requestId = ++this.addressSearchRequestId;
+    this.addressSearchLoading = true;
+
+    try {
+      const url = new URL('https://nominatim.openstreetmap.org/search');
+      url.searchParams.set('format', 'jsonv2');
+      url.searchParams.set('limit', '5');
+      url.searchParams.set('addressdetails', '1');
+      url.searchParams.set('accept-language', this.translate.currentLang || 'es');
+      url.searchParams.set('q', query);
+
+      const response = await fetch(url.toString());
+
+      if (!response.ok) {
+        throw new Error(`OpenStreetMap search failed with status ${response.status}`);
+      }
+
+      const places = (await response.json()) as OpenStreetMapPlace[];
+
+      if (requestId === this.addressSearchRequestId) {
+        this.addressSuggestions = places;
+      }
+    } catch {
+      if (requestId === this.addressSearchRequestId) {
+        this.addressSuggestions = [];
+      }
+    } finally {
+      if (requestId === this.addressSearchRequestId) {
+        this.addressSearchLoading = false;
+      }
+    }
+  }
+
+  private async updateAddressFromCoordinates(latitude: number, longitude: number): Promise<void> {
+    try {
+      const url = new URL('https://nominatim.openstreetmap.org/reverse');
+      url.searchParams.set('format', 'jsonv2');
+      url.searchParams.set('lat', String(latitude));
+      url.searchParams.set('lon', String(longitude));
+      url.searchParams.set('accept-language', this.translate.currentLang || 'es');
+
+      const response = await fetch(url.toString());
+
+      if (!response.ok) {
+        return;
+      }
+
+      const place = (await response.json()) as Partial<OpenStreetMapPlace>;
+
+      if (place.display_name) {
+        this.address = place.display_name;
+        this.clearAddressSuggestions();
+      }
+    } catch {
+      // The selected coordinates remain valid even if the public lookup is unavailable.
+    }
+  }
+
+  private clearAddressSuggestions(): void {
+    this.addressSuggestions = [];
+    this.addressSearchLoading = false;
   }
 
   private isGeneratedMapReference(value: string): boolean {
