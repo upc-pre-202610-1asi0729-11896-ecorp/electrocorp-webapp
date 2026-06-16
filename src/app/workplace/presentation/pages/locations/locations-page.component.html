@@ -148,27 +148,52 @@
           </p>
         </div>
 
-        <div class="map-picker">
-          <iframe
-            [title]="'workplace.locations.map.iframeTitle' | translate"
-            [src]="mapPreviewUrl"
-            loading="lazy"
-          ></iframe>
-          <div
-            class="map-picker__surface"
-            role="button"
-            tabindex="0"
-            [attr.aria-label]="'workplace.locations.map.surfaceLabel' | translate"
-            (click)="selectMapPoint($event)"
-          >
-            <span
-              class="map-picker__marker"
-              [style.left.%]="markerX"
-              [style.top.%]="markerY"
-            ></span>
+        <div
+          #mapViewport
+          class="map-picker"
+          [class.map-picker--dragging]="draggingMap"
+          role="button"
+          tabindex="0"
+          [attr.aria-label]="'workplace.locations.map.surfaceLabel' | translate"
+          (pointerdown)="onMapPointerDown($event)"
+          (pointermove)="onMapPointerMove($event)"
+          (pointerup)="onMapPointerUp($event)"
+          (pointercancel)="onMapPointerCancel($event)"
+          (wheel)="onMapWheel($event)"
+        >
+          <div class="map-picker__tiles">
+            @for (tile of mapTiles; track tile.key) {
+              <img
+                class="map-picker__tile"
+                [src]="tile.url"
+                [style.left.px]="tile.left"
+                [style.top.px]="tile.top"
+                alt=""
+                draggable="false"
+              />
+            }
           </div>
 
-          <div class="map-picker__controls" aria-hidden="false">
+          <span
+            class="map-picker__marker"
+            [class.map-picker__marker--hidden]="!markerVisible()"
+            [style.left.px]="markerLeft()"
+            [style.top.px]="markerTop()"
+          ></span>
+
+          <div class="map-picker__crosshair" aria-hidden="true"></div>
+
+          <div class="map-picker__attribution">
+            OpenStreetMap contributors
+          </div>
+
+          <div
+            class="map-picker__controls"
+            aria-hidden="false"
+            (pointerdown)="$event.stopPropagation()"
+            (pointerup)="$event.stopPropagation()"
+            (wheel)="$event.stopPropagation()"
+          >
             <button
               type="button"
               [attr.aria-label]="'workplace.locations.map.zoomIn' | translate"
@@ -193,7 +218,6 @@
             </button>
           </div>
         </div>
-
         <p class="coordinate-note">
           {{ 'workplace.locations.map.selectedLabel' | translate }}:
           <strong>{{ selectedCoordinateLabel }}</strong>
