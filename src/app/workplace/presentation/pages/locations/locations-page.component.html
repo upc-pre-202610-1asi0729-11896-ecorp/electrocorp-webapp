@@ -107,13 +107,37 @@
 
       <label class="field-wide">
         <span>{{ 'workplace.locations.form.addressLabel' | translate }}</span>
-        <input
-          type="text"
-          name="address"
-          [(ngModel)]="address"
-          [placeholder]="'workplace.locations.form.addressPlaceholder' | translate"
-          required
-        />
+        <div class="address-search">
+          <input
+            type="text"
+            name="address"
+            [ngModel]="address"
+            (ngModelChange)="onAddressChange($event)"
+            [placeholder]="'workplace.locations.form.addressPlaceholder' | translate"
+            autocomplete="off"
+            required
+          />
+
+          @if (addressSearchLoading || addressSuggestions.length > 0) {
+            <div class="address-search__suggestions">
+              @if (addressSearchLoading) {
+                <span class="address-search__status">
+                  {{ 'workplace.locations.map.searchingAddress' | translate }}
+                </span>
+              }
+
+              @for (suggestion of addressSuggestions; track suggestion.display_name) {
+                <button
+                  type="button"
+                  class="address-search__suggestion"
+                  (click)="selectAddressSuggestion(suggestion)"
+                >
+                  {{ suggestion.display_name }}
+                </button>
+              }
+            </div>
+          }
+        </div>
       </label>
 
       <section class="map-field field-wide">
@@ -142,6 +166,31 @@
               [style.left.%]="markerX"
               [style.top.%]="markerY"
             ></span>
+          </div>
+
+          <div class="map-picker__controls" aria-hidden="false">
+            <button
+              type="button"
+              [attr.aria-label]="'workplace.locations.map.zoomIn' | translate"
+              (click)="zoomInMap()"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              [attr.aria-label]="'workplace.locations.map.zoomOut' | translate"
+              (click)="zoomOutMap()"
+            >
+              -
+            </button>
+            <button
+              type="button"
+              class="map-picker__locate"
+              [disabled]="locatingUser"
+              (click)="locateUser()"
+            >
+              {{ 'workplace.locations.map.locateMe' | translate }}
+            </button>
           </div>
         </div>
 
