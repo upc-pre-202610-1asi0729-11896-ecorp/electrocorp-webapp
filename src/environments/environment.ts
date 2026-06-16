@@ -1,4 +1,4 @@
 export const environment = {
   production: false,
-  apiBaseUrl: 'https://electrocorp-platform.onrender.com',
+  apiBaseUrl: 'http://localhost:8080/api/v1',
 };

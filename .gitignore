@@ -2,12 +2,15 @@
 
 # Compiled output
 /dist
+dist/
 /tmp
 /out-tsc
+out-tsc/
 /bazel-out
 
 # Node
 /node_modules
+node_modules/
 npm-debug.log
 yarn-error.log
 
@@ -21,6 +24,7 @@ yarn-error.log
 *.sublime-workspace
 
 # Visual Studio Code
+.vscode/
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
@@ -31,9 +35,11 @@ yarn-error.log
 
 # Miscellaneous
 /.angular/cache
+.angular/
 .sass-cache/
 /connect.lock
 /coverage
+coverage/
 /libpeerconnection.log
 testem.log
 /typings
