@@ -18,7 +18,7 @@
         type="text"
         name="holderName"
         [(ngModel)]="holderName"
-        autocomplete="off"
+        autocomplete="cc-name"
         required
       />
     </label>
@@ -30,9 +30,12 @@
         name="cardNumber"
         [ngModel]="cardNumber"
         (ngModelChange)="onCardNumberChange($event)"
-        autocomplete="off"
+        autocomplete="cc-number"
         inputmode="numeric"
         maxlength="19"
+        minlength="19"
+        pattern="[0-9 ]{19}"
+        placeholder="0000 0000 0000 0000"
         required
       />
     </label>
@@ -45,9 +48,12 @@
           name="expirationDate"
           [ngModel]="expirationDate"
           (ngModelChange)="onExpirationDateChange($event)"
-          autocomplete="off"
+          autocomplete="cc-exp"
           inputmode="numeric"
           maxlength="5"
+          minlength="5"
+          pattern="(0[1-9]|1[0-2])/[0-9]{2}"
+          placeholder="MM/YY"
           required
         />
       </label>
@@ -59,9 +65,11 @@
           name="cvv"
           [ngModel]="cvv"
           (ngModelChange)="onCvvChange($event)"
-          autocomplete="off"
+          autocomplete="cc-csc"
           inputmode="numeric"
-          maxlength="4"
+          maxlength="3"
+          minlength="3"
+          pattern="[0-9]{3}"
           required
         />
       </label>
