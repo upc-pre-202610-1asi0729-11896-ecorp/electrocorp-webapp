@@ -321,7 +321,7 @@ export class HomePageComponent implements OnInit {
   }
 
   getLocationSubtitle(location: Location): string {
-    return [this.getLocationTypeLabel(location), location.address].filter(Boolean).join(' - ');
+    return this.getLocationTypeLabel(location);
   }
 
   getRoomName(assignment: DeviceAssignment): string {
