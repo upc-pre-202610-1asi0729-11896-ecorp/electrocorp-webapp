@@ -6,7 +6,7 @@ import {
 } from '../../domain/model/routine.entity';
 
 export interface RoutineResponse extends BaseResponse<number> {
-  userId?: number;
+  userId: number;
   deviceId?: number | null;
   groupId?: number | null;
   targetType?: RoutineTargetType | null;
@@ -14,8 +14,7 @@ export interface RoutineResponse extends BaseResponse<number> {
   targetName?: string | null;
   name: string;
   action: RoutineAction;
-  time?: string | null;
-  scheduledTime?: string | null;
+  time: string;
   repeatType?: RoutineRepeatType | null;
   daysOfWeek?: string | null;
   intervalDays?: number | null;

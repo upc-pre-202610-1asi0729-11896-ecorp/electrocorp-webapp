@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
@@ -11,9 +11,14 @@ import { DeviceGroupResponse } from '../responses/device-group.response';
   providedIn: 'root',
 })
 export class DeviceGroupsApiService {
-  private readonly resourcePath = `${API_BASE_URL}/device-groups`;
+  private readonly resourcePath: string;
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    @Inject(API_BASE_URL) apiBaseUrl: string
+  ) {
+    this.resourcePath = `${apiBaseUrl}/device-groups`;
+  }
 
   findAllForCurrentUser(): Observable<DeviceGroupResponse[]> {
     return this.http.get<DeviceGroupResponse[]>(this.resourcePath);
@@ -43,5 +48,9 @@ export class DeviceGroupsApiService {
         status: payload.status,
       }
     );
+  }
+
+  delete(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.resourcePath}/${id}`);
   }
 }

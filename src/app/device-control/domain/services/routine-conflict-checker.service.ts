@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+
 import { Routine } from '../model/routine.entity';
 import { RoutineConflictCandidate } from '../model/routine-conflict-candidate.model';
 
@@ -6,10 +7,7 @@ import { RoutineConflictCandidate } from '../model/routine-conflict-candidate.mo
   providedIn: 'root',
 })
 export class RoutineConflictCheckerService {
-  hasConflict(
-    routines: Routine[],
-    candidate: RoutineConflictCandidate
-  ): boolean {
+  hasConflict(routines: Routine[], candidate: RoutineConflictCandidate): boolean {
     return routines.some(
       (routine) =>
         routine.enabled &&
