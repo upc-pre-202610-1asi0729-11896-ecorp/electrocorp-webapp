@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
+import { API_BASE_URL } from '../../../shared/infrastructure/api/api-config';
 import { BaseApiService } from '../../../shared/infrastructure/api/base-api.service';
 
 import { Plan } from '../../domain/model/plan.entity';
@@ -16,7 +17,10 @@ export class PlansApiService extends BaseApiService<
   PlanResource,
   PlanResponse
 > {
-  constructor(http: HttpClient) {
-    super(http, 'billing/plans', new PlanAssembler());
+  constructor(
+    http: HttpClient,
+    @Inject(API_BASE_URL) apiBaseUrl: string
+  ) {
+    super(http, apiBaseUrl, 'billing/plans', new PlanAssembler());
   }
 }
