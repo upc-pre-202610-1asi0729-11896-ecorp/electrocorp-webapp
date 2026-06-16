@@ -2,10 +2,9 @@ import { BaseResponse } from '../../../shared/infrastructure/responses/base.resp
 
 export interface ConsumptionReportResponse extends BaseResponse<number> {
   userId: number;
-  startDate: string;
-  endDate: string;
   totalWatts: number;
   averageWatts: number;
-  highestReading: number;
-  recommendation: string;
+  highestWatts: number;
+  startDate: string;
+  endDate: string;
 }

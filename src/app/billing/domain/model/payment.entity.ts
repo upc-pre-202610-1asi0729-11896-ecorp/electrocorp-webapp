@@ -1,71 +1,49 @@
 import { BaseEntity } from '../../../shared/domain/model/base.entity';
-import { PlanCode } from './plan.entity';
 
 export type PaymentMethod = 'CARD';
-export type PaymentStatus = 'APPROVED' | 'REJECTED';
+export type PaymentStatus = 'APPROVED' | 'REJECTED' | 'PENDING';
 
 export class Payment extends BaseEntity<number> {
   private readonly _userId: number;
-  private readonly _planCode: PlanCode;
   private readonly _amount: number;
-  private readonly _method: PaymentMethod;
+  private readonly _currency: string;
   private readonly _status: PaymentStatus;
-  private readonly _createdAt: string;
-  private readonly _cardLastFourDigits: string;
-  private readonly _holderName: string;
+  private readonly _paymentMethod: string;
 
   constructor(props: {
     id: number;
     userId: number;
-    planCode: PlanCode;
     amount: number;
-    method: PaymentMethod;
+    currency: string;
     status: PaymentStatus;
-    createdAt: string;
-    cardLastFourDigits: string;
-    holderName: string;
+    paymentMethod: string;
   }) {
     super(props.id);
     this._userId = props.userId;
-    this._planCode = props.planCode;
     this._amount = props.amount;
-    this._method = props.method;
+    this._currency = props.currency;
     this._status = props.status;
-    this._createdAt = props.createdAt;
-    this._cardLastFourDigits = props.cardLastFourDigits;
-    this._holderName = props.holderName;
+    this._paymentMethod = props.paymentMethod;
   }
 
   get userId(): number {
     return this._userId;
   }
 
-  get planCode(): PlanCode {
-    return this._planCode;
-  }
-
   get amount(): number {
     return this._amount;
   }
 
-  get method(): PaymentMethod {
-    return this._method;
+  get currency(): string {
+    return this._currency;
   }
 
   get status(): PaymentStatus {
     return this._status;
   }
 
-  get createdAt(): string {
-    return this._createdAt;
-  }
-
-  get cardLastFourDigits(): string {
-    return this._cardLastFourDigits;
-  }
-
-  get holderName(): string {
-    return this._holderName;
+  get paymentMethod(): string {
+    return this._paymentMethod;
   }
 
   get isApproved(): boolean {

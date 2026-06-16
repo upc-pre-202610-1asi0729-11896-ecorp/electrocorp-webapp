@@ -1,65 +1,68 @@
-<section class="page">
-  <article class="page-header">
-    <div>
-      <p class="eyebrow">{{ 'billing.eyebrow' | translate }}</p>
-      <h1>{{ 'billing.title' | translate }}</h1>
-      <p>{{ 'billing.subtitle' | translate }}</p>
-    </div>
-
-    @if (billingFacade.activePlan()) {
-      <article class="active-plan-card">
-        <span>{{ 'billing.activeSubscription' | translate }}</span>
-        <strong>{{ billingFacade.activePlan()?.name }}</strong>
-
-        @if (billingFacade.lastPayment()) {
-          <small>
-            {{ 'billing.lastPayment' | translate }}:
-            **** {{ billingFacade.lastPayment()?.cardLastFourDigits }}
-          </small>
-        }
-
-        <button
-          type="button"
-          [disabled]="billingFacade.loading()"
-          (click)="handleCancelSubscription()"
-        >
-          {{ 'billing.cancel' | translate }}
-        </button>
-      </article>
-    } @else {
-      <article class="active-plan-card">
-        <span>{{ 'billing.activeSubscription' | translate }}</span>
-        <strong>{{ 'billing.noPlan' | translate }}</strong>
-      </article>
-    }
-  </article>
-
-  @if (billingFacade.error()) {
-    <article class="error-card">
-      {{ billingFacade.error()! | translate }}
+<section class="plans-page">
+  <section class="plan-summary-strip" aria-label="Plan comparison summary">
+    <article>
+      <span>{{ 'billing.summaryStarterLabel' | translate }}</span>
+      <strong>{{ 'billing.summaryStarterText' | translate }}</strong>
     </article>
-  }
 
-  <section class="plans-grid">
-    @for (plan of billingFacade.plans(); track plan.id) {
-      <app-plan-card
-        [plan]="plan"
-        [loading]="billingFacade.loading()"
-        [isCurrentPlan]="
-          billingFacade.activeSubscription()?.planCode === plan.code &&
-          billingFacade.activeSubscription()?.status === 'ACTIVE'
-        "
-        (subscribe)="handleSubscribe($event)"
-      />
-    }
+    <article class="highlighted">
+      <span>{{ 'billing.summaryProfessionalLabel' | translate }}</span>
+      <strong>{{ 'billing.summaryProfessionalText' | translate }}</strong>
+    </article>
+
+    <article>
+      <span>{{ 'billing.summaryEnterpriseLabel' | translate }}</span>
+      <strong>{{ 'billing.summaryEnterpriseText' | translate }}</strong>
+    </article>
   </section>
 
-  @if (selectedPlan()) {
+  @if (billingFacade.loading()) {
+    <div class="loading-wrapper">
+      <app-loading-spinner />
+    </div>
+  } @else {
+    @if (billingFacade.activePlan()) {
+      <section class="current-plan">
+        <div>
+          <span>{{ 'billing.currentPlan' | translate }}</span>
+          <strong>{{ billingFacade.activePlan()?.name }}</strong>
+        </div>
+
+        <app-button
+          variant="danger"
+          size="sm"
+          [disabled]="billingFacade.loading()"
+          (pressed)="cancelSubscription()"
+        >
+          {{ 'billing.cancel' | translate }}
+        </app-button>
+      </section>
+    } @else {
+      <section class="current-plan empty">
+        <div>
+          <span>{{ 'billing.currentPlan' | translate }}</span>
+          <strong>{{ 'billing.noPlan' | translate }}</strong>
+        </div>
+      </section>
+    }
+
+    <section class="plans-grid">
+      @for (plan of billingFacade.plans(); track plan.id) {
+        <app-plan-card
+          [plan]="plan"
+          [activePlanCode]="billingFacade.activePlanCode()"
+          (selected)="openPayment($event)"
+        />
+      }
+    </section>
+  }
+
+  @if (selectedPlan) {
     <app-payment-form
-      [plan]="selectedPlan()!"
+      [plan]="selectedPlan"
       [loading]="billingFacade.loading()"
-      (confirmPayment)="handleConfirmPayment($event)"
-      (cancelPayment)="closePaymentForm()"
+      (confirmed)="confirmPayment($event)"
+      (canceled)="closePayment()"
     />
   }
 </section>

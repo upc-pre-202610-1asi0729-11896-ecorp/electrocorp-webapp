@@ -1,10 +1,13 @@
+import { Inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
+import { API_BASE_URL } from '../../../shared/infrastructure/api/api-config';
 import { BaseApiService } from '../../../shared/infrastructure/api/base-api.service';
+
 import { Subscription } from '../../domain/model/subscription.entity';
 import { SubscriptionAssembler } from '../assemblers/subscription.assembler';
+import { CheckoutSubscriptionResource } from '../resources/checkout-subscription.resource';
 import { SubscriptionResource } from '../resources/subscription.resource';
 import { SubscriptionResponse } from '../responses/subscription.response';
 
@@ -16,23 +19,29 @@ export class SubscriptionsApiService extends BaseApiService<
   SubscriptionResource,
   SubscriptionResponse
 > {
-  constructor(http: HttpClient) {
-    super(http, 'subscriptions', new SubscriptionAssembler());
+  constructor(
+    http: HttpClient,
+    @Inject(API_BASE_URL) apiBaseUrl: string
+  ) {
+    super(http, apiBaseUrl, 'billing/subscriptions', new SubscriptionAssembler());
   }
 
-  findActiveByUserId(userId: number): Observable<SubscriptionResponse[]> {
-    return this.http.get<SubscriptionResponse[]>(
-      `${this.apiBaseUrl}/subscriptions?userId=${userId}&status=ACTIVE`
+  findCurrent(): Observable<SubscriptionResponse | null> {
+    return this.http.get<SubscriptionResponse | null>(
+      `${this.resourceEndpoint}/current`
     );
   }
 
-  cancelSubscription(subscriptionId: number): Observable<SubscriptionResponse> {
-    return this.http.patch<SubscriptionResponse>(
-      `${this.apiBaseUrl}/subscriptions/${subscriptionId}`,
-      {
-        status: 'CANCELED',
-        endsAt: new Date().toISOString().slice(0, 10),
-      }
+  cancelCurrent(): Observable<void> {
+    return this.http.delete<void>(
+      `${this.resourceEndpoint}/current`
+    );
+  }
+
+  checkout(resource: CheckoutSubscriptionResource): Observable<SubscriptionResponse> {
+    return this.http.post<SubscriptionResponse>(
+      `${this.resourceEndpoint}/checkout`,
+      resource
     );
   }
 }
