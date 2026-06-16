@@ -1,7 +1,8 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
+import { API_BASE_URL } from '../../../shared/infrastructure/api/api-config';
 import { BaseApiService } from '../../../shared/infrastructure/api/base-api.service';
 
 import { Invoice } from '../../domain/model/invoice.entity';
@@ -17,13 +18,16 @@ export class InvoicesApiService extends BaseApiService<
   InvoiceResource,
   InvoiceResponse
 > {
-  constructor(http: HttpClient) {
-    super(http, 'billing/invoices', new InvoiceAssembler());
+  constructor(
+    http: HttpClient,
+    @Inject(API_BASE_URL) apiBaseUrl: string
+  ) {
+    super(http, apiBaseUrl, 'billing/invoices', new InvoiceAssembler());
   }
 
   findCurrentUserInvoices(): Observable<InvoiceResponse[]> {
     return this.http.get<InvoiceResponse[]>(
-      `${this.apiBaseUrl}/${this.endpointPath}`
+      this.resourceEndpoint
     );
   }
 }

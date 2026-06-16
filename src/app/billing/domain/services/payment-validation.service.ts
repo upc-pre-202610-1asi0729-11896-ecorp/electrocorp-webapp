@@ -25,4 +25,8 @@ export class PaymentValidationService {
   sanitizeCardNumber(cardNumber: string): string {
     return cardNumber.replace(/\s/g, '');
   }
+
+  getLastFourDigits(cardNumber: string): string {
+    return this.sanitizeCardNumber(cardNumber).slice(-4);
+  }
 }

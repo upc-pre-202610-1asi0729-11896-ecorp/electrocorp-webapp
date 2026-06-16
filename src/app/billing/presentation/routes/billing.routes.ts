@@ -1,9 +1,12 @@
 import { Routes } from '@angular/router';
 
+import { authGuard } from '../../../shared/application/guards/auth.guard';
+
 export const BILLING_ROUTES: Routes = [
   {
-    path: 'billing/plans',
-    data: { title: 'Plans' },
+    path: 'plans',
+    canActivate: [authGuard],
+    data: { title: 'Planes' },
     loadComponent: () =>
       import('../pages/plans/plans-page.component').then(
         (m) => m.PlansPageComponent
@@ -11,10 +14,7 @@ export const BILLING_ROUTES: Routes = [
   },
   {
     path: 'billing/history',
-    data: { title: 'Billing History' },
-    loadComponent: () =>
-      import('../pages/billing-history/billing-history-page.component').then(
-        (m) => m.BillingHistoryPageComponent
-      ),
+    redirectTo: 'settings/billing',
+    pathMatch: 'full',
   },
 ];
