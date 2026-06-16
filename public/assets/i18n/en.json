@@ -1347,7 +1347,13 @@
         "iframeTitle": "OpenStreetMap reference map",
         "surfaceLabel": "Select a point on the map",
         "selectedLabel": "Selected location",
-        "selectedAddress": "Selected location ({{coordinates}})"
+        "selectedAddress": "Selected location ({{coordinates}})",
+        "searchingAddress": "Searching addresses...",
+        "zoomIn": "Zoom in",
+        "zoomOut": "Zoom out",
+        "locateMe": "Use my location",
+        "locationUnavailable": "Location is not available in this browser.",
+        "locationDenied": "Location permission was denied or could not be resolved."
       },
       "deleteTitle": "Delete site",
       "deleteMessage": "You are about to delete {{name}}. Related rooms and assignments may stop appearing in Spaces.",
