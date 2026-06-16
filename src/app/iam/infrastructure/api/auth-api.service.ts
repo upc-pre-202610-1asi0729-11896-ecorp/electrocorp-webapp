@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 
@@ -13,9 +13,14 @@ import { UserResponse } from '../responses/user.response';
   providedIn: 'root',
 })
 export class AuthApiService {
-  private readonly authUrl = `${API_BASE_URL}/auth`;
+  private readonly authUrl: string;
 
-  constructor(private readonly http: HttpClient) {}
+  constructor(
+    private readonly http: HttpClient,
+    @Inject(API_BASE_URL) private readonly apiBaseUrl: string
+  ) {
+    this.authUrl = `${this.apiBaseUrl}/auth`;
+  }
 
   signIn(resource: SignInResource): Observable<AuthResponse> {
     return this.http.post<AuthResponse>(`${this.authUrl}/sign-in`, resource);
