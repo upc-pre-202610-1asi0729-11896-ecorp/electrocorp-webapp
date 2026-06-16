@@ -1347,7 +1347,13 @@
         "iframeTitle": "Mapa OpenStreetMap de referencia",
         "surfaceLabel": "Seleccionar punto en el mapa",
         "selectedLabel": "Ubicacion seleccionada",
-        "selectedAddress": "Ubicacion seleccionada ({{coordinates}})"
+        "selectedAddress": "Ubicacion seleccionada ({{coordinates}})",
+        "searchingAddress": "Buscando direcciones...",
+        "zoomIn": "Acercar",
+        "zoomOut": "Alejar",
+        "locateMe": "Usar mi ubicacion",
+        "locationUnavailable": "La ubicacion no esta disponible en este navegador.",
+        "locationDenied": "El permiso de ubicacion fue denegado o no se pudo resolver."
       },
       "deleteTitle": "Eliminar sede",
       "deleteMessage": "Vas a eliminar {{name}}. Las habitaciones y asignaciones asociadas pueden dejar de aparecer en Espacios.",
