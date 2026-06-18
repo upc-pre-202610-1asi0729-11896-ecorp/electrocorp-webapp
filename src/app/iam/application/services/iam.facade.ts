@@ -22,6 +22,10 @@ import { UserAssembler } from '../../infrastructure/assemblers/user.assembler';
 
 import { IamStore } from '../stores/iam.store';
 
+interface SignUpOptions {
+  navigateAfterSignUp?: boolean;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -88,7 +92,10 @@ export class IamFacade {
     }
   }
 
-  async signUp(command: SignUpCommand): Promise<boolean> {
+  async signUp(
+    command: SignUpCommand,
+    options: SignUpOptions = {}
+  ): Promise<boolean> {
     this.startRequest();
 
     try {
@@ -123,7 +130,9 @@ export class IamFacade {
       const user = this.userAssembler.toEntity(response.user);
       this.setAuthenticatedUser(user, response.token);
 
-      await this.router.navigateByUrl(ROUTE_PATHS.BILLING.PLANS);
+      if (options.navigateAfterSignUp ?? true) {
+        await this.router.navigateByUrl(ROUTE_PATHS.BILLING.PLANS);
+      }
 
       return true;
     } catch (error) {

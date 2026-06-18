@@ -1,9 +1,10 @@
 import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 
 import { BillingFacade } from '../../../application/services/billing.facade';
 import { PaymentFormCommand } from '../../../application/commands/payment-form.command';
-import { Plan } from '../../../domain/model/plan.entity';
+import { Plan, PlanCode } from '../../../domain/model/plan.entity';
 
 import { PlanCardComponent } from '../../components/plan-card/plan-card.component';
 import { PaymentFormComponent } from '../../components/payment-form/payment-form.component';
@@ -31,7 +32,9 @@ export class PlansPageComponent implements OnInit {
   constructor(
     readonly billingFacade: BillingFacade,
     private readonly toastService: ToastService,
-    private readonly confirmDialog: ConfirmDialogService
+    private readonly confirmDialog: ConfirmDialogService,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router
   ) {}
 
   async ngOnInit(): Promise<void> {
@@ -39,7 +42,10 @@ export class PlansPageComponent implements OnInit {
 
     if (this.billingFacade.error()) {
       this.toastService.error('No se pudo cargar la información de facturación.');
+      return;
     }
+
+    this.openSelectedPlanFromRoute();
   }
 
   openPayment(plan: Plan): void {
@@ -84,5 +90,45 @@ export class PlansPageComponent implements OnInit {
     }
 
     this.toastService.error('No se pudo cancelar la suscripción.');
+  }
+
+  private openSelectedPlanFromRoute(): void {
+    const planCode = this.route.snapshot.queryParamMap.get('planCode');
+
+    if (!this.isPlanCode(planCode)) {
+      return;
+    }
+
+    const plan = this.billingFacade
+      .plans()
+      .find((item) => item.code === planCode);
+
+    if (!plan || this.billingFacade.activePlanCode() === plan.code) {
+      this.clearPlanQueryParams();
+      return;
+    }
+
+    this.selectedPlan = plan;
+    this.clearPlanQueryParams();
+  }
+
+  private clearPlanQueryParams(): void {
+    void this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {
+        planCode: null,
+        source: null,
+      },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
+  }
+
+  private isPlanCode(value: string | null): value is PlanCode {
+    return (
+      value === 'STARTER' ||
+      value === 'PROFESSIONAL' ||
+      value === 'ENTERPRISE'
+    );
   }
 }
