@@ -8,6 +8,14 @@
       {{ 'auth.registerSubtitle' | translate }}
     </p>
 
+    @if (selectedLandingPlan) {
+      <section class="selected-plan-summary">
+        <span>{{ 'billing.selectedPlan' | translate }}</span>
+        <strong>{{ selectedLandingPlan.name }}</strong>
+        <small>S/ {{ selectedLandingPlan.price }} / {{ 'billing.month' | translate }}</small>
+      </section>
+    }
+
     <form class="auth-form" (ngSubmit)="onSubmit()">
       <label>
         {{ 'auth.fullName' | translate }}
@@ -53,10 +61,10 @@
       <app-button
         type="submit"
         variant="create"
-        [disabled]="iamFacade.loading() || !passwordIsValid"
+        [disabled]="registrationIsLoading || !passwordIsValid"
         [block]="true"
       >
-        @if (iamFacade.loading()) {
+        @if (registrationIsLoading) {
           {{ 'common.loading' | translate }}
         } @else {
           {{ 'auth.signUp' | translate }}

@@ -1,11 +1,19 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 
+import { PlanCode } from '../../../../billing/domain/model/plan.entity';
 import { IamFacade } from '../../../application/services/iam.facade';
 import { ToastService } from '../../../../shared/application/services/toast.service';
+import { ROUTE_PATHS } from '../../../../shared/infrastructure/constants/route-paths';
 import { AppButtonComponent } from '../../../../shared/presentation/components/app-button/app-button.component';
+
+interface LandingSelectedPlan {
+  code: PlanCode;
+  name: string;
+  price: string;
+}
 
 @Component({
   selector: 'app-register-page',
@@ -14,15 +22,33 @@ import { AppButtonComponent } from '../../../../shared/presentation/components/a
   templateUrl: './register-page.component.html',
   styleUrls: ['./register-page.component.scss'],
 })
-export class RegisterPageComponent {
+export class RegisterPageComponent implements OnInit {
   fullName = '';
   email = '';
   password = '';
+  selectedLandingPlan: LandingSelectedPlan | null = null;
 
   constructor(
     readonly iamFacade: IamFacade,
+    private readonly route: ActivatedRoute,
+    private readonly router: Router,
     private readonly toastService: ToastService
   ) {}
+
+  ngOnInit(): void {
+    const queryParams = this.route.snapshot.queryParamMap;
+    const planCode = queryParams.get('planCode');
+
+    if (!this.isPlanCode(planCode)) {
+      return;
+    }
+
+    this.selectedLandingPlan = {
+      code: planCode,
+      name: queryParams.get('planName') || this.getDefaultPlanName(planCode),
+      price: queryParams.get('planPrice') || this.getDefaultPlanPrice(planCode),
+    };
+  }
 
   get passwordRequirements() {
     return [
@@ -45,6 +71,10 @@ export class RegisterPageComponent {
     return this.passwordRequirements.every((requirement) => requirement.valid);
   }
 
+  get registrationIsLoading(): boolean {
+    return this.iamFacade.loading();
+  }
+
   async onSubmit(): Promise<void> {
     if (!this.passwordIsValid) {
       this.toastService.warning('Completa los requisitos de contraseña.');
@@ -55,10 +85,53 @@ export class RegisterPageComponent {
       fullName: this.fullName,
       email: this.email,
       password: this.password,
+    }, {
+      navigateAfterSignUp: false,
     });
 
     if (!success) {
       this.toastService.error('No se pudo crear la cuenta.');
+      return;
     }
+
+    if (this.selectedLandingPlan) {
+      await this.router.navigate([ROUTE_PATHS.BILLING.PLANS], {
+        queryParams: {
+          planCode: this.selectedLandingPlan.code,
+          source: 'registration',
+        },
+      });
+      return;
+    }
+
+    await this.router.navigateByUrl(ROUTE_PATHS.BILLING.PLANS);
+  }
+
+  private isPlanCode(value: string | null): value is PlanCode {
+    return (
+      value === 'STARTER' ||
+      value === 'PROFESSIONAL' ||
+      value === 'ENTERPRISE'
+    );
+  }
+
+  private getDefaultPlanName(planCode: PlanCode): string {
+    const names: Record<PlanCode, string> = {
+      STARTER: 'Starter Plan',
+      PROFESSIONAL: 'Professional Plan',
+      ENTERPRISE: 'Enterprise Plan',
+    };
+
+    return names[planCode];
+  }
+
+  private getDefaultPlanPrice(planCode: PlanCode): string {
+    const prices: Record<PlanCode, string> = {
+      STARTER: '19.00',
+      PROFESSIONAL: '49.00',
+      ENTERPRISE: '99.00',
+    };
+
+    return prices[planCode];
   }
 }
