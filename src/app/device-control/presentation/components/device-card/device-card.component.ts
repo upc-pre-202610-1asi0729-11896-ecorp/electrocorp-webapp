@@ -24,6 +24,7 @@ type PowerTransition = 'powering-on' | 'powering-off' | null;
 export class DeviceCardComponent implements OnChanges, OnDestroy {
   @Input({ required: true }) device!: Device;
   @Input() locationName = '';
+  @Input() roomName = '';
   @Input() removing = false;
 
   @Output() toggle = new EventEmitter<Device>();

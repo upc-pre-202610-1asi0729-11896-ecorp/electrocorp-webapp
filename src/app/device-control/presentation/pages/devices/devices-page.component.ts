@@ -10,6 +10,7 @@ import { DeviceControlFacade } from '../../../application/services/device-contro
 import { Device, DeviceType } from '../../../domain/model/device.entity';
 import { ActiveWorkplaceContextService } from '../../../../workplace/application/services/active-workplace-context.service';
 import { WorkplaceFacade } from '../../../../workplace/application/services/workplace.facade';
+import { DeviceAssignment } from '../../../../workplace/domain/model/device-assignment.entity';
 import { Room } from '../../../../workplace/domain/model/room.entity';
 
 import { DeviceListComponent } from '../../components/device-list/device-list.component';
@@ -239,11 +240,32 @@ export class DevicesPageComponent implements OnInit {
     }
 
     return new Set(
-      this.workplaceFacade
-        .deviceAssignments()
+      [...this.currentAssignmentsByDevice().values()]
         .filter((assignment) => assignment.locationId === locationId)
         .map((assignment) => assignment.deviceId)
     );
+  }
+
+  get assignedRoomNamesByDeviceId(): Map<number, string> {
+    const locationId = this.activeLocationId;
+    const roomNames = new Map<number, string>();
+
+    if (!locationId) {
+      return roomNames;
+    }
+
+    for (const assignment of this.currentAssignmentsByDevice().values()) {
+      if (assignment.locationId !== locationId) {
+        continue;
+      }
+
+      roomNames.set(
+        assignment.deviceId,
+        this.workplaceFacade.getRoomName(assignment.roomId)
+      );
+    }
+
+    return roomNames;
   }
 
   get assignedDevices(): Device[] {
@@ -524,6 +546,33 @@ export class DevicesPageComponent implements OnInit {
 
   private normalize(value: string): string {
     return value.trim().toLocaleLowerCase();
+  }
+
+  private currentAssignmentsByDevice(): Map<number, DeviceAssignment> {
+    const currentAssignments = new Map<number, DeviceAssignment>();
+
+    for (const assignment of this.workplaceFacade.deviceAssignments()) {
+      const current = currentAssignments.get(assignment.deviceId);
+
+      if (!current || this.isNewerAssignment(assignment, current)) {
+        currentAssignments.set(assignment.deviceId, assignment);
+      }
+    }
+
+    return currentAssignments;
+  }
+
+  private isNewerAssignment(candidate: DeviceAssignment, current: DeviceAssignment): boolean {
+    const candidateTime = this.assignmentTimestamp(candidate);
+    const currentTime = this.assignmentTimestamp(current);
+
+    return candidateTime > currentTime ||
+      (candidateTime === currentTime && candidate.id > current.id);
+  }
+
+  private assignmentTimestamp(assignment: DeviceAssignment): number {
+    const assignedAt = Date.parse(assignment.assignedAt);
+    return Number.isNaN(assignedAt) ? 0 : assignedAt;
   }
 
   private getDirectDeviceRoutines(deviceId: number): Routine[] {

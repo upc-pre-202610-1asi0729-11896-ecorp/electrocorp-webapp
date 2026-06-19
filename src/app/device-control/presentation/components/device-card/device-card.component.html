@@ -13,7 +13,7 @@
       <h2 [title]="device.name">{{ device.name }}</h2>
       <small>
         {{ locationName || ('devices.activeSiteFallback' | translate) }} /
-        {{ device.room || ('devices.noRoom' | translate) }}
+        {{ roomName || device.room || ('devices.noRoom' | translate) }}
       </small>
     </div>
 

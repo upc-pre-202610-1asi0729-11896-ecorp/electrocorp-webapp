@@ -22,6 +22,7 @@ interface DeviceRoomGroup {
 export class DeviceListComponent {
   @Input() devices: Device[] = [];
   @Input() locationName = '';
+  @Input() roomNamesByDeviceId = new Map<number, string>();
   @Input() removingDeviceIds = new Set<number>();
 
   @Output() toggle = new EventEmitter<Device>();
@@ -31,7 +32,7 @@ export class DeviceListComponent {
     const groups = new Map<string, Device[]>();
 
     for (const device of this.devices) {
-      const roomName = device.room?.trim() || '';
+      const roomName = this.roomNameForDevice(device);
       const roomDevices = groups.get(roomName) ?? [];
       roomDevices.push(device);
       groups.set(roomName, roomDevices);
@@ -52,5 +53,9 @@ export class DeviceListComponent {
 
   isDeviceRemoving(deviceId: number): boolean {
     return this.removingDeviceIds.has(deviceId);
+  }
+
+  roomNameForDevice(device: Device): string {
+    return this.roomNamesByDeviceId.get(device.id)?.trim() || device.room?.trim() || '';
   }
 }

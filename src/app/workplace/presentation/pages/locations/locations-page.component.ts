@@ -102,26 +102,26 @@ export class LocationsPageComponent implements OnInit {
   }
 
   get assignedDeviceCount(): number {
-    return this.workplaceFacade.deviceAssignments().length;
+    return this.workplaceFacade.currentDeviceAssignments.length;
   }
 
   get unassignedDeviceCount(): number {
-    return Math.max(this.deviceControlFacade.devices().length - this.assignedDeviceCount, 0);
+    return Math.max(this.visibleDeviceCount() - this.assignedDeviceCount, 0);
   }
 
   get unroomedDeviceCount(): number {
     const devicesWithRoom = new Set(
       this.workplaceFacade
-        .deviceAssignments()
+        .currentDeviceAssignments
         .filter((assignment) => Boolean(assignment.roomId))
         .map((assignment) => assignment.deviceId)
     );
 
-    return Math.max(this.deviceControlFacade.devices().length - devicesWithRoom.size, 0);
+    return Math.max(this.visibleDeviceCount() - devicesWithRoom.size, 0);
   }
 
   get energyCoverage(): number {
-    const totalDevices = this.deviceControlFacade.devices().length;
+    const totalDevices = this.visibleDeviceCount();
 
     if (totalDevices === 0) {
       return 0;
@@ -469,9 +469,11 @@ export class LocationsPageComponent implements OnInit {
   }
 
   private assignmentsForLocation(locationId: number) {
-    return this.workplaceFacade
-      .deviceAssignments()
-      .filter((assignment) => assignment.locationId === locationId);
+    return this.workplaceFacade.getCurrentDeviceAssignmentsForLocation(locationId);
+  }
+
+  private visibleDeviceCount(): number {
+    return this.deviceControlFacade.devices().filter((device) => !device.isRemoved).length;
   }
 
   private setSelectedCoordinates(latitude: number, longitude: number, centerMap: boolean): void {
