@@ -118,12 +118,17 @@ export class EnergyDashboardPageComponent implements OnInit, OnDestroy {
       return new Set<number>();
     }
 
-    return new Set(
+    const assignedDeviceIds = new Set(
       this.workplaceFacade
-        .deviceAssignments()
-        .filter((assignment) => assignment.locationId === activeLocationId)
+        .getCurrentDeviceAssignmentsForLocation(activeLocationId)
         .map((assignment) => assignment.deviceId)
     );
+
+    if (assignedDeviceIds.size > 0) {
+      return assignedDeviceIds;
+    }
+
+    return this.energyDeviceIdsFallback();
   });
 
   readonly allReadings = computed(() => this.energyMonitoringFacade.readings() ?? []);
@@ -745,17 +750,24 @@ export class EnergyDashboardPageComponent implements OnInit, OnDestroy {
 
   private getRoomNameForDevice(deviceId: number): string {
     const activeLocationId = this.activeLocationId();
-    const assignment = this.workplaceFacade
-      .deviceAssignments()
-      .find(
-        (item) =>
-          item.deviceId === deviceId &&
-          (!activeLocationId || item.locationId === activeLocationId)
-      );
+    const assignments = activeLocationId
+      ? this.workplaceFacade.getCurrentDeviceAssignmentsForLocation(activeLocationId)
+      : this.workplaceFacade.currentDeviceAssignments;
+    const assignment = assignments.find((item) => item.deviceId === deviceId);
 
     return assignment
       ? this.workplaceFacade.getRoomName(assignment.roomId)
       : this.t('energyDashboard.noRoom');
+  }
+
+  private energyDeviceIdsFallback(): Set<number> {
+    const summary = this.summary();
+
+    return new Set([
+      ...this.energyMonitoringFacade.readings().map((reading) => reading.deviceId),
+      ...(summary?.activeDeviceDetails.map((device) => device.deviceId) ?? []),
+      ...(summary?.topDevices.map((device) => device.deviceId) ?? []),
+    ]);
   }
 
   private getDeviceTypeForDevice(deviceId: number): string {
