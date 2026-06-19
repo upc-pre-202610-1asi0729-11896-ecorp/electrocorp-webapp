@@ -68,9 +68,7 @@ export class RoomsPageComponent implements OnInit {
 
   get activeAssignments() {
     const locationId = this.activeLocationId;
-    return locationId
-      ? this.workplaceFacade.deviceAssignments().filter((assignment) => assignment.locationId === locationId)
-      : [];
+    return locationId ? this.workplaceFacade.getCurrentDeviceAssignmentsForLocation(locationId) : [];
   }
 
   get activeDeviceCount(): number {

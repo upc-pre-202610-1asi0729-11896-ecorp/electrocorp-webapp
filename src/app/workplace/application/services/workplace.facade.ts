@@ -18,6 +18,7 @@ import { DeviceAssignmentAssembler } from '../../infrastructure/assemblers/devic
 import { LocationAssembler } from '../../infrastructure/assemblers/location.assembler';
 import { RoomAssembler } from '../../infrastructure/assemblers/room.assembler';
 
+import { DeviceAssignment } from '../../domain/model/device-assignment.entity';
 import { WorkplaceStore } from '../stores/workplace.store';
 
 @Injectable({
@@ -38,6 +39,22 @@ export class WorkplaceFacade {
 
   get deviceAssignments() {
     return this.store.deviceAssignments;
+  }
+
+  get currentDeviceAssignments(): DeviceAssignment[] {
+    const visibleDeviceIds = new Set(
+      this.deviceControlFacade
+        .devices()
+        .filter((device) => !device.isRemoved)
+        .map((device) => device.id)
+    );
+
+    return [...this.currentAssignmentsByDevice().values()]
+      .filter((assignment) => visibleDeviceIds.has(assignment.deviceId))
+      .sort((first, second) =>
+        this.assignmentTimestamp(second) - this.assignmentTimestamp(first) ||
+        second.id - first.id
+      );
   }
 
   get loading() {
@@ -381,8 +398,41 @@ export class WorkplaceFacade {
     return this.store.rooms().filter((room) => room.locationId === locationId);
   }
 
+  getCurrentDeviceAssignmentsForLocation(locationId: number): DeviceAssignment[] {
+    return this.currentDeviceAssignments.filter(
+      (assignment) => assignment.locationId === locationId
+    );
+  }
+
   clearMessages(): void {
     this.store.clearMessages();
+  }
+
+  private currentAssignmentsByDevice(): Map<number, DeviceAssignment> {
+    const currentAssignments = new Map<number, DeviceAssignment>();
+
+    for (const assignment of this.store.deviceAssignments()) {
+      const current = currentAssignments.get(assignment.deviceId);
+
+      if (!current || this.isNewerAssignment(assignment, current)) {
+        currentAssignments.set(assignment.deviceId, assignment);
+      }
+    }
+
+    return currentAssignments;
+  }
+
+  private isNewerAssignment(candidate: DeviceAssignment, current: DeviceAssignment): boolean {
+    const candidateTime = this.assignmentTimestamp(candidate);
+    const currentTime = this.assignmentTimestamp(current);
+
+    return candidateTime > currentTime ||
+      (candidateTime === currentTime && candidate.id > current.id);
+  }
+
+  private assignmentTimestamp(assignment: DeviceAssignment): number {
+    const assignedAt = Date.parse(assignment.assignedAt);
+    return Number.isNaN(assignedAt) ? 0 : assignedAt;
   }
 
   private startRequest(): void {
