@@ -68,6 +68,7 @@
     <app-device-list
       [devices]="assignedDevices"
       [locationName]="activeLocationName"
+      [roomNamesByDeviceId]="assignedRoomNamesByDeviceId"
       [removingDeviceIds]="removingDeviceIds"
       (toggle)="toggleDevice($event)"
       (remove)="deleteDevice($event)"

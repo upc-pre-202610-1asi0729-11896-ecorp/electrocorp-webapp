@@ -1,4 +1,12 @@
-import { Component, EventEmitter, Input, OnDestroy, Output } from '@angular/core';
+import {
+  Component,
+  EventEmitter,
+  Input,
+  OnChanges,
+  OnDestroy,
+  Output,
+  SimpleChanges,
+} from '@angular/core';
 
 import { ConfirmDialogTone } from '../../../application/services/confirm-dialog.service';
 import { AppButtonComponent, AppButtonVariant } from '../app-button/app-button.component';
@@ -10,7 +18,7 @@ import { AppButtonComponent, AppButtonVariant } from '../app-button/app-button.c
   templateUrl: './confirm-dialog.component.html',
   styleUrls: ['./confirm-dialog.component.scss'],
 })
-export class ConfirmDialogComponent implements OnDestroy {
+export class ConfirmDialogComponent implements OnChanges, OnDestroy {
   @Input() open = false;
   @Input() title = 'Confirmar accion';
   @Input() message = '';
@@ -40,6 +48,24 @@ export class ConfirmDialogComponent implements OnDestroy {
 
   get canConfirm(): boolean {
     return !this.requiredText || this.confirmationText === this.requiredText;
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!this.open) {
+      return;
+    }
+
+    const opened = changes['open']?.currentValue === true;
+    const contentChanged = Boolean(
+      changes['title'] ||
+      changes['message'] ||
+      changes['detail'] ||
+      changes['requiredText']
+    );
+
+    if (opened || contentChanged) {
+      this.resetDialogState();
+    }
   }
 
   ngOnDestroy(): void {
@@ -74,5 +100,15 @@ export class ConfirmDialogComponent implements OnDestroy {
       emit();
       this.closeTimer = null;
     }, 180);
+  }
+
+  private resetDialogState(): void {
+    if (this.closeTimer) {
+      clearTimeout(this.closeTimer);
+      this.closeTimer = null;
+    }
+
+    this.closing = false;
+    this.confirmationText = '';
   }
 }
