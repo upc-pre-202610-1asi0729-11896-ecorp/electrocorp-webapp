@@ -580,18 +580,16 @@ export class EnergyDashboardPageComponent implements OnInit, OnDestroy {
 
     await this.loadSamplingSettings();
 
-    await Promise.all([
-      workplaceAlreadyLoaded
-        ? Promise.resolve()
-        : this.workplaceFacade.loadWorkplace(),
-      readingsAlreadyLoaded
-        ? Promise.resolve()
-        : this.energyMonitoringFacade.loadReadings(),
-    ]);
+    if (!workplaceAlreadyLoaded) {
+      await this.workplaceFacade.loadWorkplace();
+    }
+
     this.activeWorkplaceContext.ensureActiveLocation(this.workplaceFacade.locations());
 
     if (readingsAlreadyLoaded) {
       void this.energyMonitoringFacade.loadReadings(false);
+    } else {
+      await this.energyMonitoringFacade.loadReadings();
     }
 
     if (this.energyMonitoringFacade.error()) {
