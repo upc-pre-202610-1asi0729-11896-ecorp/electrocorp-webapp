@@ -78,12 +78,17 @@ export class EnergyHistoryPageComponent implements OnInit {
       return new Set<number>();
     }
 
-    return new Set(
+    const assignedDeviceIds = new Set(
       this.workplaceFacade
-        .deviceAssignments()
-        .filter((assignment) => assignment.locationId === activeLocationId)
+        .getCurrentDeviceAssignmentsForLocation(activeLocationId)
         .map((assignment) => assignment.deviceId)
     );
+
+    if (assignedDeviceIds.size > 0) {
+      return assignedDeviceIds;
+    }
+
+    return new Set(this.energyMonitoringFacade.readings().map((reading) => reading.deviceId));
   });
 
   readonly historyScopeOptions = computed<DropdownOption[]>(() => [
